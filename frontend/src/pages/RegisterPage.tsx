@@ -62,7 +62,7 @@ const RegisterPage = () => {
             required
           />
           <select
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white"
+            className="w-full rounded-xl border border-white/10 bg-transparent px-4 py-3 text-sm text-white"
             value={form.role}
             onChange={(event) => setForm({ ...form, role: event.target.value as UserRole })}
           >
@@ -90,3 +90,4 @@ const RegisterPage = () => {
 };
 
 export default RegisterPage;
+
