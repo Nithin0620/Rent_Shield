@@ -1,4 +1,5 @@
 import Reveal from "./Reveal";
+import { Link } from "react-router-dom";
 
 const CTASection = () => {
   return (
@@ -10,9 +11,12 @@ const CTASection = () => {
             Start protecting deposits with evidence-backed escrow and AI-assisted resolution.
           </p>
           <div className="mt-6 flex justify-center">
-            <button className="rounded-full bg-neon-500 px-6 py-3 text-sm font-semibold text-midnight-900 glow hover:bg-neon-600 transition">
+            <Link
+              to="/register"
+              className="rounded-full bg-neon-500 px-6 py-3 text-sm font-semibold text-midnight-900 glow hover:bg-neon-600 transition"
+            >
               Start Using RentShield
-            </button>
+            </Link>
           </div>
         </div>
       </Reveal>

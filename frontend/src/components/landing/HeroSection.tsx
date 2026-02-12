@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import { ShieldCheck, Vault, Sparkles } from "lucide-react";
 import Reveal from "./Reveal";
 
@@ -21,12 +22,18 @@ const HeroSection = () => {
               A trust layer for fair, fast, and evidence-based deposit returns.
             </p>
             <div className="flex flex-wrap gap-4">
-              <button className="rounded-full bg-neon-500 px-6 py-3 text-sm font-semibold text-midnight-900 glow hover:bg-neon-600 transition">
+              <Link
+                to="/register"
+                className="rounded-full bg-neon-500 px-6 py-3 text-sm font-semibold text-midnight-900 glow hover:bg-neon-600 transition"
+              >
                 Protect My Deposit
-              </button>
-              <button className="rounded-full border border-white/20 px-6 py-3 text-sm text-white hover:border-neon-500 hover:text-neon-500 transition">
+              </Link>
+              <a
+                href="#timeline"
+                className="rounded-full border border-white/20 px-6 py-3 text-sm text-white hover:border-neon-500 hover:text-neon-500 transition"
+              >
                 See How It Works
-              </button>
+              </a>
             </div>
             <div className="flex flex-wrap gap-6 text-sm text-slate-300">
               <div className="flex items-center gap-2">

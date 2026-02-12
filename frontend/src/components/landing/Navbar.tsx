@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -28,12 +29,18 @@ const Navbar = () => {
           ))}
         </div>
         <div className="hidden items-center gap-3 md:flex">
-          <button className="rounded-full border border-white/20 px-4 py-2 text-sm text-white hover:border-neon-500 hover:text-neon-500 transition">
+          <a
+            href="#timeline"
+            className="rounded-full border border-white/20 px-4 py-2 text-sm text-white hover:border-neon-500 hover:text-neon-500 transition"
+          >
             See How It Works
-          </button>
-          <button className="rounded-full bg-neon-500 px-4 py-2 text-sm font-semibold text-midnight-900 glow hover:bg-neon-600 transition">
+          </a>
+          <Link
+            to="/register"
+            className="rounded-full bg-neon-500 px-4 py-2 text-sm font-semibold text-midnight-900 glow hover:bg-neon-600 transition"
+          >
             Protect My Deposit
-          </button>
+          </Link>
         </div>
         <button
           className="md:hidden"
@@ -55,12 +62,12 @@ const Navbar = () => {
                 {link.label}
               </a>
             ))}
-            <button className="rounded-full border border-white/20 px-4 py-2 text-sm text-white">
+            <a href="#timeline" className="rounded-full border border-white/20 px-4 py-2 text-sm text-white">
               See How It Works
-            </button>
-            <button className="rounded-full bg-neon-500 px-4 py-2 text-sm font-semibold text-midnight-900">
+            </a>
+            <Link to="/register" className="rounded-full bg-neon-500 px-4 py-2 text-sm font-semibold text-midnight-900">
               Protect My Deposit
-            </button>
+            </Link>
           </div>
         </motion.div>
       )}
