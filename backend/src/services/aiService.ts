@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { AppError } from "../utils/AppError";
+import { logger } from "../utils/logger";
 
 const getEnv = (key: string) => {
   const value = process.env[key];
@@ -90,7 +91,8 @@ export const runAiReview = async (input: AiAnalysisInput) => {
   const content = response.choices[0]?.message?.content || "";
   const usage = response.usage;
 
-  console.log("AI_REVIEW", {
+  logger.info({
+    event: "AI_REVIEW",
     model: response.model,
     latencyMs,
     promptTokens: usage?.prompt_tokens,

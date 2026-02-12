@@ -152,6 +152,9 @@ const DisputeDetailPage = () => {
         ) : (
           <p className="muted">AI report not available.</p>
         )}
+        {dispute.finalDecisionPercentage !== undefined && (
+          <p className="muted">Final decision payout %: {dispute.finalDecisionPercentage}</p>
+        )}
         {canRunAi && (
           <button onClick={handleAiReview} disabled={aiLoading}>
             {aiLoading ? "Running..." : "Run AI Review"}

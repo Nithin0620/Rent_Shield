@@ -3,6 +3,7 @@ import { Property } from "../models/Property";
 import { AgreementStatus, RentalAgreement } from "../models/RentalAgreement";
 import { AppError } from "../utils/AppError";
 import { EscrowStatus, EscrowTransaction } from "../models/EscrowTransaction";
+import { enqueuePayout } from "./payoutService";
 
 interface CreateAgreementInput {
   tenantId: string;
@@ -136,7 +137,21 @@ export const requestRelease = async (agreementId: string, userId: string) => {
       throw new AppError("Escrow cannot be released", 400);
     }
 
+    if (!escrowTransaction.webhookVerified) {
+      throw new AppError("Payment not verified", 400);
+    }
+
     escrowTransaction.escrowStatus = EscrowStatus.ReleaseRequested;
+    if (agreement.tenantId.toString() === userId) {
+      escrowTransaction.releaseRequestedByTenant = true;
+    }
+    if (agreement.landlordId.toString() === userId) {
+      escrowTransaction.releaseRequestedByLandlord = true;
+    }
+    escrowTransaction.transactionLogs.push({
+      event: "release_requested",
+      metadata: { userId }
+    });
     escrow = await escrowTransaction.save({ session });
   });
 
@@ -147,6 +162,7 @@ export const requestRelease = async (agreementId: string, userId: string) => {
 export const confirmRelease = async (agreementId: string, userId: string) => {
   const session = await mongoose.startSession();
   let escrow;
+  let shouldEnqueue = false;
 
   await session.withTransaction(async () => {
     const agreement = await RentalAgreement.findById(agreementId).session(session);
@@ -170,31 +186,40 @@ export const confirmRelease = async (agreementId: string, userId: string) => {
       throw new AppError("Escrow is not ready for release", 400);
     }
 
+    if (!escrowTransaction.webhookVerified) {
+      throw new AppError("Payment not verified", 400);
+    }
+
     if (isTenant) {
-      if (escrowTransaction.releaseConfirmedByTenant) {
+      if (escrowTransaction.releaseRequestedByTenant) {
         throw new AppError("Tenant already confirmed", 409);
       }
-      escrowTransaction.releaseConfirmedByTenant = true;
+      escrowTransaction.releaseRequestedByTenant = true;
     }
 
     if (isLandlord) {
-      if (escrowTransaction.releaseConfirmedByLandlord) {
+      if (escrowTransaction.releaseRequestedByLandlord) {
         throw new AppError("Landlord already confirmed", 409);
       }
-      escrowTransaction.releaseConfirmedByLandlord = true;
+      escrowTransaction.releaseRequestedByLandlord = true;
     }
 
-    if (escrowTransaction.releaseConfirmedByTenant && escrowTransaction.releaseConfirmedByLandlord) {
-      escrowTransaction.escrowStatus = EscrowStatus.Released;
-      escrowTransaction.releasedAt = new Date();
-      agreement.agreementStatus = AgreementStatus.Completed;
-      await agreement.save({ session });
+    if (escrowTransaction.releaseRequestedByTenant && escrowTransaction.releaseRequestedByLandlord) {
+      shouldEnqueue = true;
     }
+
+    escrowTransaction.transactionLogs.push({
+      event: "release_confirmed",
+      metadata: { userId }
+    });
 
     escrow = await escrowTransaction.save({ session });
   });
 
   session.endSession();
+  if (shouldEnqueue && escrow) {
+    await enqueuePayout(escrow.id);
+  }
   return escrow;
 };
 

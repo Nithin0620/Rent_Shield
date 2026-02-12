@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { AgreementStatus, AgreementWithEscrow, EscrowStatus } from "../types/agreement";
+import { AgreementWithEscrow, EscrowStatus } from "../types/agreement";
 import DisputeQuickAction from "../components/DisputeQuickAction";
 import {
   confirmRelease,
   getMyAgreements,
-  payDeposit,
   requestRelease
 } from "../services/agreementService";
 import EscrowStatusBadge from "../components/EscrowStatusBadge";
@@ -31,19 +30,6 @@ const MyAgreementsPage = () => {
   useEffect(() => {
     loadAgreements();
   }, []);
-
-  const handlePayDeposit = async (agreementId: string) => {
-    setProcessingId(agreementId);
-    setMessage(null);
-    try {
-      await payDeposit(agreementId);
-      await loadAgreements();
-    } catch {
-      setMessage("Unable to pay deposit.");
-    } finally {
-      setProcessingId(null);
-    }
-  };
 
   const handleRequestRelease = async (agreementId: string) => {
     setProcessingId(agreementId);
@@ -71,6 +57,7 @@ const MyAgreementsPage = () => {
     }
   };
 
+
   const isTenant = user?.role === "tenant";
 
   const content = useMemo(() => {
@@ -82,16 +69,16 @@ const MyAgreementsPage = () => {
       <div className="list">
         {agreements.map(({ agreement, escrow }) => {
           const escrowStatus = escrow?.escrowStatus ?? EscrowStatus.Unpaid;
-          const isActive = agreement.agreementStatus === AgreementStatus.Active;
-          const canPay =
-            isTenant && isActive && escrow?.escrowStatus === EscrowStatus.Unpaid;
           const canRequestRelease =
             escrowStatus === EscrowStatus.Locked &&
+            (user?.role === "tenant" || user?.role === "landlord") &&
+            escrow?.webhookVerified;
+          const canConfirmRelease =
+            escrowStatus === EscrowStatus.ReleaseRequested &&
             (user?.role === "tenant" || user?.role === "landlord");
-          const canConfirmRelease = escrowStatus === EscrowStatus.ReleaseRequested;
 
-          const tenantConfirmed = escrow?.releaseConfirmedByTenant;
-          const landlordConfirmed = escrow?.releaseConfirmedByLandlord;
+          const tenantConfirmed = escrow?.releaseRequestedByTenant;
+          const landlordConfirmed = escrow?.releaseRequestedByLandlord;
 
           const alreadyConfirmed =
             (user?.role === "tenant" && tenantConfirmed) ||
@@ -107,18 +94,18 @@ const MyAgreementsPage = () => {
               <p>Agreement status: {agreement.agreementStatus}</p>
               <p>Deposit amount: ${agreement.depositAmount}</p>
               <p>Landlord: {agreement.landlordId.name}</p>
+              <p>Payment verified: {escrow?.webhookVerified ? "Yes" : "No"}</p>
+              <p>Escrow status: {escrowStatus}</p>
+              {user?.role === "tenant" && (
+                <p className="muted">Refund expected: 100% (subject to dispute resolution)</p>
+              )}
+              {user?.role === "landlord" && (
+                <p className="muted">Expected payout: 0–100% (pending dispute resolution)</p>
+              )}
               <Link to={`/agreements/${agreement._id}/evidence`}>View evidence timeline</Link>
               <DisputeQuickAction agreement={{ agreement, escrow }} />
 
               <div className="form-grid">
-                {canPay && (
-                  <button
-                    onClick={() => handlePayDeposit(agreement._id)}
-                    disabled={processingId === agreement._id}
-                  >
-                    {processingId === agreement._id ? "Processing..." : "Simulate deposit payment"}
-                  </button>
-                )}
 
                 {canRequestRelease && (
                   <button

@@ -23,6 +23,7 @@ const Navbar = () => {
               <Link to="/dashboard">Dashboard</Link>
               <Link to="/properties">Properties</Link>
               <Link to="/agreements">My Agreements</Link>
+              <Link to="/transactions">Transactions</Link>
               {user?.role === "landlord" && (
                 <>
                   <Link to="/properties/me">My Properties</Link>

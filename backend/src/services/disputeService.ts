@@ -5,6 +5,9 @@ import { RentalAgreement } from "../models/RentalAgreement";
 import { EscrowStatus, EscrowTransaction } from "../models/EscrowTransaction";
 import { Evidence, EvidenceType } from "../models/Evidence";
 import { runAiReview } from "./aiService";
+import { EscrowTransaction } from "../models/EscrowTransaction";
+import { enqueuePayout } from "./payoutService";
+import { logAudit } from "./auditService";
 
 export const createDispute = async ({ agreementId, raisedBy, reason }: {
   agreementId: string;
@@ -56,7 +59,17 @@ export const createDispute = async ({ agreementId, raisedBy, reason }: {
       { session }
     );
 
+    await logAudit({
+      userId: raisedBy,
+      action: "dispute_created",
+      metadata: { agreementId }
+    });
+
     escrow.escrowStatus = EscrowStatus.Disputed;
+      escrow.transactionLogs.push({
+        event: "dispute_raised",
+        metadata: { agreementId }
+      });
     await escrow.save({ session });
   });
 
@@ -147,6 +160,21 @@ export const adminResolveDispute = async ({
   dispute.status = DisputeStatus.Resolved;
   dispute.resolvedAt = new Date();
   await dispute.save();
+
+  await logAudit({
+    action: "dispute_resolved",
+    metadata: { disputeId: dispute.id, agreementId: dispute.agreementId, finalDecisionPercentage }
+  });
+
+  const escrow = await EscrowTransaction.findOne({ agreementId: dispute.agreementId });
+  if (escrow) {
+    escrow.transactionLogs.push({
+      event: "dispute_resolved",
+      metadata: { disputeId: dispute.id, finalDecisionPercentage }
+    });
+    await escrow.save();
+    await enqueuePayout(escrow.id);
+  }
 
   return dispute;
 };

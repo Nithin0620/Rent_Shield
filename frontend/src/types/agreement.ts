@@ -47,10 +47,18 @@ export interface EscrowTransaction {
   agreementId: string;
   amount: number;
   escrowStatus: EscrowStatus;
+  paymentGatewayOrderId?: string;
+  paymentGatewayPaymentId?: string;
+  webhookVerified: boolean;
   lockedAt?: string;
   releasedAt?: string;
-  releaseConfirmedByTenant: boolean;
-  releaseConfirmedByLandlord: boolean;
+  releaseRequestedByTenant: boolean;
+  releaseRequestedByLandlord: boolean;
+  transactionLogs: Array<{
+    event: string;
+    metadata?: Record<string, unknown>;
+    createdAt: string;
+  }>;
 }
 
 export interface AgreementWithEscrow {
