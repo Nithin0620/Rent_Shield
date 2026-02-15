@@ -1,8 +1,6 @@
 import dotenv from "dotenv";
 import app from "./app";
 import { connectDB } from "./config/db";
-import { startPayoutWorker } from "./services/payoutQueue";
-import { redisConnection } from "./config/redis";
 import { logger } from "./utils/logger";
 import mongoose from "mongoose";
 
@@ -17,18 +15,20 @@ const startServer = async () => {
       logger.info({ port }, "Server running");
     });
 
-    startPayoutWorker();
-
     const shutdown = async () => {
       logger.info("Shutting down server");
       server.close();
-      await redisConnection.quit();
       await mongoose.connection.close();
       process.exit(0);
     };
 
     process.on("SIGINT", shutdown);
     process.on("SIGTERM", shutdown);
+
+    process.on("unhandledRejection", (reason) => {
+      logger.error({ reason }, "Unhandled promise rejection");
+      shutdown();
+    });
   } catch (error) {
     logger.error({ error }, "Failed to start server");
     process.exit(1);

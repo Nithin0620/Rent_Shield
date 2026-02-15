@@ -1,13 +1,16 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Skeleton from "../components/ui/Skeleton";
-import { mockProperties } from "../services/mockData";
 import useAuth from "../hooks/useAuth";
 import { useToast } from "../components/ui/ToastProvider";
+import { createProperty, getMyProperties } from "../services/propertyService";
+import { Property } from "../types/property";
 
 const DashboardProperties = () => {
   const { user } = useAuth();
   const { push } = useToast();
-  const [properties, setProperties] = useState(mockProperties);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [form, setForm] = useState({ title: "", address: "", rent: "", deposit: "" });
 
@@ -15,20 +18,39 @@ const DashboardProperties = () => {
     return <p className="text-slate-300">This section is available to landlords only.</p>;
   }
 
-  const handleSubmit = () => {
-    setProperties((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const data = await getMyProperties();
+        setProperties(data);
+      } catch {
+        push("Unable to load properties.", "error");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [push]);
+
+  const handleSubmit = async () => {
+    setSaving(true);
+    try {
+      const property = await createProperty({
         title: form.title,
         address: form.address,
         rent: Number(form.rent),
         depositAmount: Number(form.deposit)
-      }
-    ]);
-    setForm({ title: "", address: "", rent: "", deposit: "" });
-    setIsOpen(false);
-    push("Property added.", "success");
+      });
+      setProperties((prev) => [...prev, property]);
+      setForm({ title: "", address: "", rent: "", deposit: "" });
+      setIsOpen(false);
+      push("Property added.", "success");
+    } catch {
+      push("Failed to add property.", "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -43,12 +65,14 @@ const DashboardProperties = () => {
         </button>
       </div>
 
-      {!properties.length ? (
+      {loading ? (
         <Skeleton className="h-24" />
+      ) : !properties.length ? (
+        <p className="text-slate-300">No properties yet.</p>
       ) : (
         <div className="grid gap-4">
           {properties.map((property) => (
-            <div key={property.id} className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <div key={property._id} className="rounded-2xl border border-white/10 bg-white/5 p-5">
               <h3 className="text-lg font-semibold text-white">{property.title}</h3>
               <p className="text-sm text-slate-300">{property.address}</p>
               <p className="mt-2 text-sm text-slate-300">Rent: ₹{property.rent}</p>
@@ -97,9 +121,10 @@ const DashboardProperties = () => {
               </button>
               <button
                 onClick={handleSubmit}
-                className="rounded-full bg-neon-500 px-4 py-2 text-sm font-semibold text-midnight-900"
+                disabled={saving}
+                className="rounded-full bg-neon-500 px-4 py-2 text-sm font-semibold text-midnight-900 disabled:opacity-60"
               >
-                Save
+                {saving ? "Saving..." : "Save"}
               </button>
             </div>
           </div>

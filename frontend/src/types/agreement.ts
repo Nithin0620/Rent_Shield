@@ -18,6 +18,7 @@ export interface AgreementParty {
   name: string;
   email: string;
   role: "tenant" | "landlord" | "admin";
+  trustScore?: number;
 }
 
 export interface AgreementProperty {

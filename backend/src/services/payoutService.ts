@@ -1,34 +1,11 @@
-import Stripe from "stripe";
 import { AppError } from "../utils/AppError";
 import { EscrowStatus, EscrowTransaction } from "../models/EscrowTransaction";
 import { Dispute, DisputeStatus } from "../models/Dispute";
 import { RentalAgreement, AgreementStatus } from "../models/RentalAgreement";
 import { logAudit } from "./auditService";
 
-const getEnv = (key: string) => {
-  const value = process.env[key];
-  if (!value) {
-    throw new Error(`${key} is not defined`);
-  }
-  return value;
-};
-
-const stripe = new Stripe(getEnv("STRIPE_SECRET_KEY"), { apiVersion: "2024-06-20" });
-
-const getDestinations = () => {
-  return {
-    landlord: getEnv("STRIPE_LANDLORD_DESTINATION"),
-    tenant: getEnv("STRIPE_TENANT_DESTINATION")
-  };
-};
-
 export const enqueuePayout = async (escrowId: string) => {
-  const { payoutQueue } = await import("./payoutQueue");
-  await payoutQueue.add(
-    "execute",
-    { escrowId },
-    { attempts: 3, backoff: { type: "exponential", delay: 2000 } }
-  );
+  await executePayout(escrowId);
 };
 
 export const executePayout = async (escrowId: string) => {
@@ -69,39 +46,17 @@ export const executePayout = async (escrowId: string) => {
   const landlordPct = dispute?.finalDecisionPercentage ?? 0;
   const tenantPct = 100 - landlordPct;
 
+  // Simulated escrow payout – real gateway not integrated
   const amount = Math.round(escrow.amount * 100);
   const landlordAmount = Math.round((amount * landlordPct) / 100);
   const tenantAmount = amount - landlordAmount;
-
-  const destination = getDestinations();
-
-  if (landlordAmount > 0) {
-    await stripe.transfers.create(
-      {
-        amount: landlordAmount,
-        currency: process.env.STRIPE_CURRENCY || "inr",
-        destination: destination.landlord
-      },
-      { idempotencyKey: `escrow-${escrow.id}-landlord` }
-    );
-  }
-
-  if (tenantAmount > 0) {
-    await stripe.transfers.create(
-      {
-        amount: tenantAmount,
-        currency: process.env.STRIPE_CURRENCY || "inr",
-        destination: destination.tenant
-      },
-      { idempotencyKey: `escrow-${escrow.id}-tenant` }
-    );
-  }
 
   escrow.escrowStatus = EscrowStatus.Released;
   escrow.releasedAt = new Date();
   escrow.transactionLogs.push({
     event: "escrow_released",
-    metadata: { landlordPct, tenantPct }
+    metadata: { landlordPct, tenantPct, landlordAmount, tenantAmount, simulated: true },
+    createdAt: new Date()
   });
   await escrow.save();
 

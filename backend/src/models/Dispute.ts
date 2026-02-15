@@ -12,7 +12,16 @@ export interface IDispute extends Document {
   raisedBy: Types.ObjectId;
   reason: string;
   status: DisputeStatus;
-  aiReport?: Record<string, unknown>;
+  aiReport?:
+    | Record<string, unknown>
+    | {
+        damageDetected: boolean;
+        damageSummary: string;
+        severityLevel: "low" | "medium" | "high";
+        confidenceScore: number;
+        recommendedPayoutPercentage: number;
+        error?: string;
+      };
   recommendedPayoutPercentage?: number;
   finalDecisionPercentage?: number;
   adminOverride: boolean;

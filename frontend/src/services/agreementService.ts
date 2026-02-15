@@ -1,5 +1,6 @@
 import api from "./api";
 import { AgreementWithEscrow, EscrowTransaction, RentalAgreement } from "../types/agreement";
+import { ExitChecklist } from "../types/checklist";
 
 interface AgreementPayload {
   propertyId: string;
@@ -20,6 +21,21 @@ export const getMyAgreements = async () => {
 export const approveAgreement = async (agreementId: string) => {
   const { data } = await api.patch<{ agreement: RentalAgreement }>(`/agreements/${agreementId}/approve`);
   return data.agreement;
+};
+
+export const rejectAgreement = async (agreementId: string, reason?: string) => {
+  const { data } = await api.patch<{ agreement: RentalAgreement }>(`/agreements/${agreementId}/reject`, { reason });
+  return data.agreement;
+};
+
+export const getChecklist = async (agreementId: string) => {
+  const { data } = await api.get<{ checklist: ExitChecklist }>(`/agreements/${agreementId}/checklist`);
+  return data.checklist;
+};
+
+export const updateChecklist = async (agreementId: string, items: ExitChecklist['items']) => {
+  const { data } = await api.patch<{ checklist: ExitChecklist }>(`/agreements/${agreementId}/checklist`, { items });
+  return data.checklist;
 };
 
 export const payDeposit = async (agreementId: string) => {

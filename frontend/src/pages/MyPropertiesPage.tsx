@@ -24,6 +24,8 @@ const MyPropertiesPage = () => {
       <h1>My properties</h1>
       {loading ? (
         <p className="muted">Loading properties...</p>
+      ) : properties.length === 0 ? (
+        <p className="muted">No properties yet.</p>
       ) : (
         <div className="list">
           {properties.map((property) => (

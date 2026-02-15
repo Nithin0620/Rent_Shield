@@ -11,8 +11,8 @@ class ErrorBoundary extends React.Component<React.PropsWithChildren, ErrorBounda
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error) {
-    console.error("UI Error", error);
+  componentDidCatch(_error: Error) {
+    // Intentionally omit console logging to keep UI clean in production.
   }
 
   render() {

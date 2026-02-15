@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
 import { AppError } from "../utils/AppError";
-import { createCheckoutSession, handleStripeWebhook } from "../services/paymentService";
+import { createCheckoutSession, handlePaymentWebhook } from "../services/paymentService";
 
 export const createOrderHandler = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.id;
@@ -23,12 +23,10 @@ export const createOrderHandler = asyncHandler(async (req: Request, res: Respons
   });
 });
 
-export const stripeWebhookHandler = asyncHandler(async (req: Request, res: Response) => {
-  const signature = req.headers["stripe-signature"];
-  const payload = req.body as Buffer;
+export const paymentWebhookHandler = asyncHandler(async (req: Request, res: Response) => {
+  const payload = req.body as unknown;
 
-  const result = await handleStripeWebhook({
-    signature,
+  const result = await handlePaymentWebhook({
     payload,
     ipAddress: req.ip
   });

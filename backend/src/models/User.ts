@@ -9,6 +9,7 @@ export interface IUser extends Document {
   password: string;
   role: UserRole;
   refreshToken?: string;
+  trustScore: number;
   createdAt: Date;
   comparePassword(candidate: string): Promise<boolean>;
 }
@@ -19,6 +20,7 @@ const userSchema = new Schema<IUser>({
   password: { type: String, required: true, minlength: 6, select: false },
   role: { type: String, enum: ["tenant", "landlord", "admin"], default: "tenant" },
   refreshToken: { type: String },
+  trustScore: { type: Number, default: 100, min: 0, max: 100 },
   createdAt: { type: Date, default: Date.now }
 });
 

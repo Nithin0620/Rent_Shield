@@ -1,20 +1,7 @@
-import OpenAI from "openai";
 import { AppError } from "../utils/AppError";
 import { logger } from "../utils/logger";
 
-const getEnv = (key: string) => {
-  const value = process.env[key];
-  if (!value) {
-    throw new Error(`${key} is not defined`);
-  }
-  return value;
-};
-
-const client = new OpenAI({
-  apiKey: getEnv("OPENAI_API_KEY")
-});
-
-const model = () => process.env.OPENAI_MODEL || "gpt-4o-mini";
+const model = () => process.env.GROQ_MODEL || "llama3-8b-8192";
 
 interface AiAnalysisInput {
   reason: string;
@@ -29,6 +16,14 @@ export interface AiAnalysisResult {
   confidenceScore: number;
   recommendedPayoutPercentage: number;
 }
+
+const mockResult = (): AiAnalysisResult => ({
+  damageDetected: false,
+  damageSummary: "Mock analysis – no damage detected",
+  severityLevel: "low",
+  confidenceScore: 0.75,
+  recommendedPayoutPercentage: 100
+});
 
 const buildPrompt = (input: AiAnalysisInput) => {
   return `You are an impartial inspection analyst. Compare move-in vs move-out evidence and the dispute reason.\n\nDispute reason: ${input.reason}\n\nMove-in evidence (URLs):\n${input.moveInEvidence
@@ -66,6 +61,11 @@ const parseResult = (content: string): AiAnalysisResult => {
 };
 
 export const runAiReview = async (input: AiAnalysisInput) => {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    return { result: mockResult(), latencyMs: 0, usage: null };
+  }
+
   const prompt = buildPrompt(input);
 
   const controller = new AbortController();
@@ -73,8 +73,13 @@ export const runAiReview = async (input: AiAnalysisInput) => {
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   const start = Date.now();
-  const response = await client.chat.completions.create(
-    {
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
       model: model(),
       messages: [
         { role: "system", content: "You return only strict JSON. No prose." },
@@ -82,18 +87,28 @@ export const runAiReview = async (input: AiAnalysisInput) => {
       ],
       response_format: { type: "json_object" },
       temperature: 0.2
-    },
-    { signal: controller.signal }
-  );
+    }),
+    signal: controller.signal
+  });
   clearTimeout(timeout);
   const latencyMs = Date.now() - start;
 
-  const content = response.choices[0]?.message?.content || "";
-  const usage = response.usage;
+  if (!response.ok) {
+    throw new AppError("AI review failed", 502);
+  }
+
+  const payload = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+    usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+    model?: string;
+  };
+
+  const content = payload.choices?.[0]?.message?.content || "";
+  const usage = payload.usage;
 
   logger.info({
     event: "AI_REVIEW",
-    model: response.model,
+    model: payload.model,
     latencyMs,
     promptTokens: usage?.prompt_tokens,
     completionTokens: usage?.completion_tokens,

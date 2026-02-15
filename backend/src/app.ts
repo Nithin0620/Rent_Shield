@@ -1,4 +1,5 @@
 import express from "express";
+import path from "path";
 import cors from "cors";
 import helmet from "helmet";
 import authRoutes from "./routes/authRoutes";
@@ -8,6 +9,7 @@ import escrowRoutes from "./routes/escrowRoutes";
 import evidenceRoutes from "./routes/evidenceRoutes";
 import disputeRoutes from "./routes/disputeRoutes";
 import paymentRoutes from "./routes/paymentRoutes";
+import adminRoutes from "./routes/adminRoutes";
 import healthRoutes from "./routes/healthRoutes";
 import { errorHandler } from "./middleware/errorHandler";
 import { AppError } from "./utils/AppError";
@@ -26,13 +28,8 @@ app.use(
 app.use(requestIdMiddleware);
 app.use(requestLogger);
 
-app.use("/api/payments/webhook", express.raw({ type: "application/json" }));
-app.use((req, res, next) => {
-  if (req.originalUrl === "/api/payments/webhook") {
-    return next();
-  }
-  return express.json()(req, res, next);
-});
+app.use(express.json());
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/properties", propertyRoutes);
@@ -41,7 +38,8 @@ app.use("/api/escrow", escrowRoutes);
 app.use("/api/evidence", evidenceRoutes);
 app.use("/api/disputes", disputeRoutes);
 app.use("/api/payments", paymentRoutes);
-app.use("/", healthRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api", healthRoutes);
 
 app.all("*", (req, _res, next) => {
   next(new AppError(`Route ${req.originalUrl} not found`, 404));

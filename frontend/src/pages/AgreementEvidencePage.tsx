@@ -7,6 +7,8 @@ import { EvidenceType } from "../types/evidenceEnums";
 import { getMyAgreements } from "../services/agreementService";
 import { getAgreementEvidence, verifyEvidence } from "../services/evidenceService";
 import useAuth from "../hooks/useAuth";
+import { useToast } from "../components/ui/ToastProvider";
+import Spinner from "../components/ui/Spinner";
 
 const AgreementEvidencePage = () => {
   const { id } = useParams();
@@ -17,6 +19,7 @@ const AgreementEvidencePage = () => {
   const [message, setMessage] = useState<string | null>(null);
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [integrityMap, setIntegrityMap] = useState<Record<string, boolean>>({});
+  const { push } = useToast();
 
   const loadData = async () => {
     if (!id) return;
@@ -29,6 +32,7 @@ const AgreementEvidencePage = () => {
       setEvidenceData(evidence);
     } catch {
       setMessage("Unable to load evidence.");
+      push("Unable to load evidence.", "error");
     } finally {
       setLoading(false);
     }
@@ -36,7 +40,7 @@ const AgreementEvidencePage = () => {
 
   useEffect(() => {
     loadData();
-  }, [id]);
+  }, [id, push]);
 
   const canUpload = useMemo(() => {
     if (!agreement || !user) return false;
@@ -52,8 +56,10 @@ const AgreementEvidencePage = () => {
     try {
       const result = await verifyEvidence(evidenceId);
       setIntegrityMap((prev) => ({ ...prev, [evidenceId]: result.integrity }));
+      push(result.integrity ? "Evidence verified." : "Evidence mismatch detected.", result.integrity ? "success" : "error");
     } catch {
       setMessage("Integrity check failed.");
+      push("Integrity check failed.", "error");
     } finally {
       setVerifyingId(null);
     }
@@ -105,7 +111,10 @@ const AgreementEvidencePage = () => {
       <h1>Agreement evidence</h1>
       {message && <p className="muted">{message}</p>}
       {loading ? (
-        <p className="muted">Loading...</p>
+        <div className="flex items-center gap-3 text-slate-300">
+          <Spinner />
+          <span>Loading...</span>
+        </div>
       ) : !agreement ? (
         <p className="muted">Agreement not found.</p>
       ) : (

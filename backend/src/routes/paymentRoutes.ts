@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { createOrderHandler, stripeWebhookHandler } from "../controllers/paymentController";
+import { createOrderHandler, paymentWebhookHandler } from "../controllers/paymentController";
 import { protect, restrictTo } from "../middleware/authMiddleware";
 import { validateBody } from "../middleware/validate";
 import { paymentRateLimiter } from "../middleware/rateLimit";
@@ -20,6 +20,6 @@ router.post(
   createOrderHandler
 );
 
-router.post("/webhook", stripeWebhookHandler);
+router.post("/webhook", paymentWebhookHandler);
 
 export default router;

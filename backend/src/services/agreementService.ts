@@ -4,6 +4,8 @@ import { AgreementStatus, RentalAgreement } from "../models/RentalAgreement";
 import { AppError } from "../utils/AppError";
 import { EscrowStatus, EscrowTransaction } from "../models/EscrowTransaction";
 import { enqueuePayout } from "./payoutService";
+import { ExitChecklist } from "../models/ExitChecklist";
+import { logAudit } from "./auditService";
 
 interface CreateAgreementInput {
   tenantId: string;
@@ -69,10 +71,54 @@ export const approveAgreement = async (agreementId: string, landlordId: string) 
       ],
       { session }
     );
+
+    // Auto-generate default exit checklist
+    const defaultItems = [
+      { label: "Property cleaned thoroughly", agreed: false },
+      { label: "Walls painted/damage repaired", agreed: false },
+      { label: "All fixtures and fittings working", agreed: false },
+      { label: "Keys and documents returned", agreed: false }
+    ];
+
+    await ExitChecklist.create(
+      [
+        {
+          agreementId,
+          items: defaultItems
+        }
+      ],
+      { session }
+    );
   });
 
   session.endSession();
   return updatedAgreement;
+};
+
+export const rejectAgreement = async (agreementId: string, landlordId: string, reason?: string) => {
+  const agreement = await RentalAgreement.findById(agreementId);
+  if (!agreement) {
+    throw new AppError("Agreement not found", 404);
+  }
+
+  if (agreement.landlordId.toString() !== landlordId) {
+    throw new AppError("Forbidden", 403);
+  }
+
+  if (agreement.agreementStatus !== AgreementStatus.Pending) {
+    throw new AppError("Agreement cannot be rejected", 400);
+  }
+
+  agreement.agreementStatus = AgreementStatus.Cancelled;
+  const updated = await agreement.save();
+
+  await logAudit({
+    userId: landlordId,
+    action: "agreement_rejected",
+    metadata: { agreementId, reason }
+  });
+
+  return updated;
 };
 
 export const payDeposit = async (agreementId: string, tenantId: string) => {
@@ -103,8 +149,15 @@ export const payDeposit = async (agreementId: string, tenantId: string) => {
       throw new AppError("Deposit already paid", 409);
     }
 
+    // Simulated escrow payment – real gateway not integrated
     escrowTransaction.escrowStatus = EscrowStatus.Locked;
+    escrowTransaction.webhookVerified = true;
     escrowTransaction.lockedAt = new Date();
+    escrowTransaction.transactionLogs.push({
+      event: "payment_simulated",
+      metadata: { agreementId, userId: tenantId },
+      createdAt: new Date()
+    });
     escrow = await escrowTransaction.save({ session });
   });
 
@@ -150,7 +203,8 @@ export const requestRelease = async (agreementId: string, userId: string) => {
     }
     escrowTransaction.transactionLogs.push({
       event: "release_requested",
-      metadata: { userId }
+      metadata: { userId },
+      createdAt: new Date()
     });
     escrow = await escrowTransaction.save({ session });
   });
@@ -162,6 +216,7 @@ export const requestRelease = async (agreementId: string, userId: string) => {
 export const confirmRelease = async (agreementId: string, userId: string) => {
   const session = await mongoose.startSession();
   let escrow;
+  let escrowId: string | null = null;
   let shouldEnqueue = false;
 
   await session.withTransaction(async () => {
@@ -210,15 +265,17 @@ export const confirmRelease = async (agreementId: string, userId: string) => {
 
     escrowTransaction.transactionLogs.push({
       event: "release_confirmed",
-      metadata: { userId }
+      metadata: { userId },
+      createdAt: new Date()
     });
 
     escrow = await escrowTransaction.save({ session });
+    escrowId = escrow.id;
   });
 
   session.endSession();
-  if (shouldEnqueue && escrow) {
-    await enqueuePayout(escrow.id);
+  if (shouldEnqueue && escrowId) {
+    await enqueuePayout(escrowId);
   }
   return escrow;
 };

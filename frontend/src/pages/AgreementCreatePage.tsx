@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { getAllProperties } from "../services/propertyService";
 import { createAgreement } from "../services/agreementService";
 import { Property } from "../types/property";
+import { useToast } from "../components/ui/ToastProvider";
 
 const AgreementCreatePage = () => {
   const [properties, setProperties] = useState<Property[]>([]);
@@ -10,15 +11,21 @@ const AgreementCreatePage = () => {
   const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const { push } = useToast();
 
   useEffect(() => {
     const load = async () => {
-      const data = await getAllProperties();
-      setProperties(data);
+      try {
+        const data = await getAllProperties();
+        setProperties(data);
+      } catch {
+        setMessage("Unable to load properties.");
+        push("Unable to load properties.", "error");
+      }
     };
 
     load();
-  }, []);
+  }, [push]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -28,11 +35,13 @@ const AgreementCreatePage = () => {
     try {
       await createAgreement({ propertyId, startDate, endDate });
       setMessage("Agreement created and pending landlord approval.");
+      push("Agreement created.", "success");
       setPropertyId("");
       setStartDate("");
       setEndDate("");
     } catch {
       setMessage("Failed to create agreement.");
+      push("Failed to create agreement.", "error");
     } finally {
       setLoading(false);
     }

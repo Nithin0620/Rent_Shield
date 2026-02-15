@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
 import { createProperty } from "../services/propertyService";
+import { useToast } from "../components/ui/ToastProvider";
 
 const CreatePropertyPage = () => {
   const [title, setTitle] = useState("");
@@ -8,6 +9,7 @@ const CreatePropertyPage = () => {
   const [depositAmount, setDepositAmount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const { push } = useToast();
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -17,12 +19,14 @@ const CreatePropertyPage = () => {
     try {
       await createProperty({ title, address, rent, depositAmount });
       setMessage("Property created successfully.");
+      push("Property created.", "success");
       setTitle("");
       setAddress("");
       setRent(0);
       setDepositAmount(0);
     } catch {
       setMessage("Failed to create property.");
+      push("Failed to create property.", "error");
     } finally {
       setLoading(false);
     }

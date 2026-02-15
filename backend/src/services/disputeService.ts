@@ -4,8 +4,8 @@ import { AppError } from "../utils/AppError";
 import { RentalAgreement } from "../models/RentalAgreement";
 import { EscrowStatus, EscrowTransaction } from "../models/EscrowTransaction";
 import { Evidence, EvidenceType } from "../models/Evidence";
+import { User } from "../models/User";
 import { runAiReview } from "./aiService";
-import { EscrowTransaction } from "../models/EscrowTransaction";
 import { enqueuePayout } from "./payoutService";
 import { logAudit } from "./auditService";
 
@@ -66,10 +66,11 @@ export const createDispute = async ({ agreementId, raisedBy, reason }: {
     });
 
     escrow.escrowStatus = EscrowStatus.Disputed;
-      escrow.transactionLogs.push({
-        event: "dispute_raised",
-        metadata: { agreementId }
-      });
+    escrow.transactionLogs.push({
+      event: "dispute_raised",
+      metadata: { agreementId },
+      createdAt: new Date()
+    });
     await escrow.save({ session });
   });
 
@@ -146,35 +147,75 @@ export const adminResolveDispute = async ({
   disputeId: string;
   finalDecisionPercentage: number;
 }) => {
-  const dispute = await Dispute.findById(disputeId);
-  if (!dispute) {
-    throw new AppError("Dispute not found", 404);
-  }
+  const session = await mongoose.startSession();
+  let dispute;
 
-  if (dispute.status !== DisputeStatus.AiReviewed) {
-    throw new AppError("Dispute must be AI reviewed first", 400);
-  }
+  await session.withTransaction(async () => {
+    dispute = await Dispute.findById(disputeId).session(session);
+    if (!dispute) {
+      throw new AppError("Dispute not found", 404);
+    }
 
-  dispute.finalDecisionPercentage = finalDecisionPercentage;
-  dispute.adminOverride = true;
-  dispute.status = DisputeStatus.Resolved;
-  dispute.resolvedAt = new Date();
-  await dispute.save();
+    if (dispute.status !== DisputeStatus.AiReviewed) {
+      throw new AppError("Dispute must be AI reviewed first", 400);
+    }
 
-  await logAudit({
-    action: "dispute_resolved",
-    metadata: { disputeId: dispute.id, agreementId: dispute.agreementId, finalDecisionPercentage }
+    dispute.finalDecisionPercentage = finalDecisionPercentage;
+    dispute.adminOverride = true;
+    dispute.status = DisputeStatus.Resolved;
+    dispute.resolvedAt = new Date();
+    await dispute.save({ session });
+
+    // Get agreement and parties
+    const agreement = await RentalAgreement.findById(dispute.agreementId).session(session);
+    if (!agreement) {
+      throw new AppError("Agreement not found", 404);
+    }
+
+    const tenant = await User.findById(agreement.tenantId).session(session);
+    const landlord = await User.findById(agreement.landlordId).session(session);
+
+    // Update trust scores
+    if (tenant && landlord) {
+      // Tenant lost dispute: -10 trust
+      // Landlord won: +5 trust
+      if (finalDecisionPercentage > 50) {
+        tenant.trustScore = Math.max(0, tenant.trustScore - 10);
+        landlord.trustScore = Math.min(100, landlord.trustScore + 5);
+      } else {
+        // Tenant won: +5 trust
+        // Landlord lost: -10 trust
+        tenant.trustScore = Math.min(100, tenant.trustScore + 5);
+        landlord.trustScore = Math.max(0, landlord.trustScore - 10);
+      }
+
+      await tenant.save({ session });
+      await landlord.save({ session });
+    }
+
+    await logAudit({
+      action: "dispute_resolved",
+      metadata: {
+        disputeId: dispute.id,
+        agreementId: dispute.agreementId,
+        finalDecisionPercentage,
+        tenantScore: tenant?.trustScore,
+        landlordScore: landlord?.trustScore
+      }
+    });
+
+    const escrow = await EscrowTransaction.findOne({ agreementId: dispute.agreementId }).session(session);
+    if (escrow) {
+      escrow.transactionLogs.push({
+        event: "dispute_resolved",
+        metadata: { disputeId: dispute.id, finalDecisionPercentage },
+        createdAt: new Date()
+      });
+      await escrow.save({ session });
+      await enqueuePayout(escrow.id);
+    }
   });
 
-  const escrow = await EscrowTransaction.findOne({ agreementId: dispute.agreementId });
-  if (escrow) {
-    escrow.transactionLogs.push({
-      event: "dispute_resolved",
-      metadata: { disputeId: dispute.id, finalDecisionPercentage }
-    });
-    await escrow.save();
-    await enqueuePayout(escrow.id);
-  }
-
+  session.endSession();
   return dispute;
 };

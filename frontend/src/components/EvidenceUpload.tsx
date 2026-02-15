@@ -1,6 +1,7 @@
 import { DragEvent, useRef, useState } from "react";
 import { EvidenceType } from "../types/evidenceEnums";
 import { uploadEvidence } from "../services/evidenceService";
+import { useToast } from "./ui/ToastProvider";
 
 interface EvidenceUploadProps {
   agreementId: string;
@@ -16,6 +17,7 @@ const EvidenceUpload = ({ agreementId, disabled, onUploaded }: EvidenceUploadPro
   const [progress, setProgress] = useState(0);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const { push } = useToast();
 
   const handleFile = (nextFile: File | null) => {
     setFile(nextFile);
@@ -44,10 +46,12 @@ const EvidenceUpload = ({ agreementId, disabled, onUploaded }: EvidenceUploadPro
     try {
       await uploadEvidence({ agreementId, type, file }, setProgress);
       setMessage("Evidence uploaded.");
+      push("Evidence uploaded.", "success");
       handleFile(null);
       onUploaded();
     } catch {
       setMessage("Upload failed.");
+      push("Upload failed.", "error");
     } finally {
       setLoading(false);
     }

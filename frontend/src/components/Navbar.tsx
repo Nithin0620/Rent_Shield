@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
+import TrustScoreBadge from "./TrustScoreBadge";
 
 const Navbar = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -31,8 +32,24 @@ const Navbar = () => {
                   <Link to="/agreements/pending">Pending Agreements</Link>
                 </>
               )}
+              {user?.role === "admin" && <Link to="/admin">Admin</Link>}
               {user?.role === "tenant" && <Link to="/agreements/new">Create Agreement</Link>}
-              <button onClick={handleLogout}>Logout</button>
+              
+              {/* User and Trust Score */}
+              <div className="flex items-center gap-3 pl-4 border-l border-white/10">
+                <div className="text-right">
+                  <div className="text-sm font-medium text-white">{user?.name}</div>
+                  {user?.trustScore !== undefined && (
+                    <TrustScoreBadge score={user.trustScore} size="sm" />
+                  )}
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="px-3 py-1 rounded text-sm font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 transition"
+                >
+                  Logout
+                </button>
+              </div>
             </>
           )}
           {!isAuthenticated && (

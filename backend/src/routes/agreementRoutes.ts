@@ -2,6 +2,9 @@ import { Router } from "express";
 import { z } from "zod";
 import {
   approveAgreementHandler,
+  rejectAgreementHandler,
+  getChecklistHandler,
+  updateChecklistHandler,
   confirmReleaseHandler,
   createAgreementHandler,
   myAgreementsHandler,
@@ -64,6 +67,15 @@ router.post(
   confirmReleaseHandler
 );
 
+router.patch(
+  "/:id/reject",
+  protect,
+  restrictTo("landlord"),
+  validateParams(idParamSchema),
+  validateBody(z.object({ reason: z.string().optional() })),
+  rejectAgreementHandler
+);
+
 router.get("/my-agreements", protect, restrictTo("tenant", "landlord"), myAgreementsHandler);
 
 router.get(
@@ -72,6 +84,22 @@ router.get(
   restrictTo("tenant", "landlord"),
   validateParams(idParamSchema),
   agreementEvidenceHandler
+);
+
+router.get(
+  "/:agreementId/checklist",
+  protect,
+  restrictTo("tenant", "landlord"),
+  validateParams(z.object({ agreementId: z.string() })),
+  getChecklistHandler
+);
+
+router.patch(
+  "/:agreementId/checklist",
+  protect,
+  restrictTo("tenant", "landlord"),
+  validateParams(z.object({ agreementId: z.string() })),
+  updateChecklistHandler
 );
 
 export default router;

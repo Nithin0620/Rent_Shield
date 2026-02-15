@@ -1,18 +1,15 @@
 import { Router } from "express";
-import mongoose from "mongoose";
-import { redisConnection } from "../config/redis";
+import { asyncHandler } from "../utils/asyncHandler";
 
 const router = Router();
 
-router.get("/health", async (_req, res) => {
-  const dbState = mongoose.connection.readyState === 1 ? "connected" : "disconnected";
-  const redisState = redisConnection.status === "ready" ? "connected" : "disconnected";
-
-  res.status(200).json({
-    status: "ok",
-    db: dbState,
-    redis: redisState
-  });
-});
+router.get(
+  "/health",
+  asyncHandler(async (_req, res) => {
+    res.status(200).json({
+      status: "ok"
+    });
+  })
+);
 
 export default router;

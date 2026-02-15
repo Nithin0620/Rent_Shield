@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { createDispute } from "../services/disputeService";
 import { getMyAgreements } from "../services/agreementService";
 import { EscrowStatus } from "../types/agreement";
+import { useToast } from "../components/ui/ToastProvider";
 
 const DisputeCreatePage = () => {
   const { agreementId } = useParams();
@@ -11,17 +12,23 @@ const DisputeCreatePage = () => {
   const [loading, setLoading] = useState(false);
   const [escrowStatus, setEscrowStatus] = useState<EscrowStatus | null>(null);
   const navigate = useNavigate();
+  const { push } = useToast();
 
   useEffect(() => {
     const loadEscrow = async () => {
       if (!agreementId) return;
-      const agreements = await getMyAgreements();
-      const match = agreements.find((item) => item.agreement._id === agreementId);
-      setEscrowStatus(match?.escrow?.escrowStatus || null);
+      try {
+        const agreements = await getMyAgreements();
+        const match = agreements.find((item) => item.agreement._id === agreementId);
+        setEscrowStatus(match?.escrow?.escrowStatus || null);
+      } catch {
+        setMessage("Unable to load escrow status.");
+        push("Unable to load escrow status.", "error");
+      }
     };
 
     loadEscrow();
-  }, [agreementId]);
+  }, [agreementId, push]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -35,9 +42,11 @@ const DisputeCreatePage = () => {
 
     try {
       await createDispute(agreementId, reason);
+      push("Dispute created.", "success");
       navigate(`/disputes/${agreementId}`);
     } catch {
       setMessage("Unable to raise dispute.");
+      push("Unable to raise dispute.", "error");
     } finally {
       setLoading(false);
     }
