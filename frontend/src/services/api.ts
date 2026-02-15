@@ -2,7 +2,7 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { AuthResponse } from "../types/auth";
 import { clearStoredAuth, getStoredTokens, setStoredTokens } from "./tokenStorage";
 
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const baseURL = import.meta.env.VITE_API_URL || "https://rent-shield.onrender.com/api";
 
 const api = axios.create({
   baseURL

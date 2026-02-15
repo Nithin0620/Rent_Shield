@@ -31,6 +31,10 @@ app.use(requestLogger);
 app.use(express.json());
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
+app.get("/", (_req, res) => {
+  res.send("surever runnning");
+});
+
 app.use("/api/auth", authRoutes);
 app.use("/api/properties", propertyRoutes);
 app.use("/api/agreements", agreementRoutes);
