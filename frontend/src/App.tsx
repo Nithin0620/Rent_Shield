@@ -8,6 +8,13 @@ import DashboardOverview from "./pages/DashboardOverview";
 import DashboardAgreements from "./pages/DashboardAgreements";
 import DashboardProperties from "./pages/DashboardProperties";
 import AgreementDetailPage from "./pages/AgreementDetailPage";
+import AdminDashboard from "./pages/AdminDashboard";
+import ViewAllAgreementsPage from "./pages/ViewAllAgreementsPage";
+import PropertiesPage from "./pages/PropertiesPage";
+import EscrowStatusPage from "./pages/EscrowStatusPage";
+import DisputesPage from "./pages/DisputesPage";
+import EvidenceVaultPage from "./pages/EvidenceVaultPage";
+import TrustScorePage from "./pages/TrustScorePage";
 
 const App = () => {
   return (
@@ -16,7 +23,9 @@ const App = () => {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
 
+      {/* Protected Routes - Tenant/Landlord */}
       <Route element={<ProtectedRoute allowedRoles={["tenant", "landlord"]} />}>
+        {/* Dashboard Layout */}
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<DashboardOverview />} />
           <Route path="agreements" element={<DashboardAgreements />} />
@@ -24,7 +33,20 @@ const App = () => {
             <Route path="properties" element={<DashboardProperties />} />
           </Route>
         </Route>
+
+        {/* Main Pages */}
+        <Route path="/agreements" element={<ViewAllAgreementsPage />} />
         <Route path="/agreements/:id" element={<AgreementDetailPage />} />
+        <Route path="/properties" element={<PropertiesPage />} />
+        <Route path="/escrow" element={<EscrowStatusPage />} />
+        <Route path="/disputes" element={<DisputesPage />} />
+        <Route path="/evidence" element={<EvidenceVaultPage />} />
+        <Route path="/trust" element={<TrustScorePage />} />
+      </Route>
+
+      {/* Admin Routes */}
+      <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+        <Route path="/admin" element={<AdminDashboard />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
