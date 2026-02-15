@@ -20,7 +20,7 @@ export const createEvidence = async ({
   uploadedBy: string;
   type: EvidenceType;
   file: Express.Multer.File;
-}) => {
+}): Promise<IEvidence> => {
   const agreement = await RentalAgreement.findById(agreementId);
   if (!agreement) {
     throw new AppError("Agreement not found", 404);
@@ -76,9 +76,9 @@ export const getAgreementEvidence = async (agreementId: string) => {
     .populate("uploadedBy", "name email role");
 
   const grouped = {
-    move_in: evidence.filter((item) => item.type === EvidenceType.MoveIn),
-    move_out: evidence.filter((item) => item.type === EvidenceType.MoveOut),
-    damage_proof: evidence.filter((item) => item.type === EvidenceType.DamageProof)
+    move_in: evidence.filter((item: IEvidence) => item.type === EvidenceType.MoveIn),
+    move_out: evidence.filter((item: IEvidence) => item.type === EvidenceType.MoveOut),
+    damage_proof: evidence.filter((item: IEvidence) => item.type === EvidenceType.DamageProof)
   };
 
   return { evidence, grouped };

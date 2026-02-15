@@ -3,7 +3,7 @@ import { Dispute, DisputeStatus } from "../models/Dispute";
 import { AppError } from "../utils/AppError";
 import { RentalAgreement } from "../models/RentalAgreement";
 import { EscrowStatus, EscrowTransaction } from "../models/EscrowTransaction";
-import { Evidence, EvidenceType } from "../models/Evidence";
+import { Evidence, EvidenceType, IEvidence } from "../models/Evidence";
 import { User } from "../models/User";
 import { runAiReview } from "./aiService";
 import { enqueuePayout } from "./payoutService";
@@ -108,12 +108,12 @@ export const runDisputeAiReview = async (disputeId: string) => {
 
   const payload = {
     reason: dispute.reason,
-    moveInEvidence: moveInEvidence.map((item) => ({
+    moveInEvidence: moveInEvidence.map((item: IEvidence) => ({
       fileUrl: item.fileUrl,
       mimeType: item.mimeType,
       uploadedAt: item.uploadedAt.toISOString()
     })),
-    moveOutEvidence: moveOutEvidence.map((item) => ({
+    moveOutEvidence: moveOutEvidence.map((item: IEvidence) => ({
       fileUrl: item.fileUrl,
       mimeType: item.mimeType,
       uploadedAt: item.uploadedAt.toISOString()
