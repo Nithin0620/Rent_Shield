@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { AgreementStatus, AgreementWithEscrow } from "../types/agreement";
+import { AgreementStatus, RentalAgreement } from "../types/agreement";
 import { approveAgreement, getMyAgreements } from "../services/agreementService";
 
 const LandlordDashboard = () => {
-  const [agreements, setAgreements] = useState<AgreementWithEscrow[]>([]);
+  const [agreements, setAgreements] = useState<RentalAgreement[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -12,7 +12,7 @@ const LandlordDashboard = () => {
     setLoading(true);
     try {
       const data = await getMyAgreements();
-      setAgreements(data.filter((item) => item.agreement.agreementStatus === AgreementStatus.Pending));
+      setAgreements(data.filter((item) => item.status === AgreementStatus.Pending));
     } finally {
       setLoading(false);
     }
@@ -22,11 +22,11 @@ const LandlordDashboard = () => {
     loadAgreements();
   }, []);
 
-  const handleApprove = async (agreementId: string) => {
-    setProcessingId(agreementId);
+  const handleApprove = async (agreement: RentalAgreement) => {
+    setProcessingId(agreement._id);
     setMessage(null);
     try {
-      await approveAgreement(agreementId);
+      await approveAgreement(agreement._id, agreement.landlordId._id?.toString() || "");
       await loadAgreements();
     } catch {
       setMessage("Unable to approve agreement.");
@@ -46,17 +46,17 @@ const LandlordDashboard = () => {
         <p className="muted">No pending agreements.</p>
       ) : (
         <div className="list">
-          {agreements.map(({ agreement }) => (
-            <article key={agreement._id} className="card">
-              <h3>{agreement.propertyId.title}</h3>
-              <p className="muted">{agreement.propertyId.address}</p>
-              <p>Tenant: {agreement.tenantId.name}</p>
-              <p>Deposit: ${agreement.depositAmount}</p>
+          {agreements.map((item) => (
+            <article key={item._id} className="card">
+              <h3>{item.propertyId.title}</h3>
+              <p className="muted">{item.propertyId.address}</p>
+              <p>Tenant: {item.tenantId.name}</p>
+              <p>Deposit: ${item.escrow?.depositAmount || 0}</p>
               <button
-                onClick={() => handleApprove(agreement._id)}
-                disabled={processingId === agreement._id}
+                onClick={() => handleApprove(item)}
+                disabled={processingId === item._id}
               >
-                {processingId === agreement._id ? "Approving..." : "Approve"}
+                {processingId === item._id ? "Approving..." : "Approve"}
               </button>
             </article>
           ))}

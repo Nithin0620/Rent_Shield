@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { AgreementWithEscrow, EscrowStatus } from "../types/agreement";
+import { RentalAgreement, EscrowStatus } from "../types/agreement";
 import { Dispute, DisputeStatus } from "../types/dispute";
-import { getEscrowByAgreement, getMyAgreements } from "../services/agreementService";
+import { getMyAgreements } from "../services/agreementService";
 import { adminResolveDispute, getDisputeByAgreement, runAiReview } from "../services/disputeService";
 import { getAgreementEvidence } from "../services/evidenceService";
 import { EvidenceGroupedResponse } from "../types/evidence";
@@ -15,7 +15,7 @@ import Spinner from "../components/ui/Spinner";
 const DisputeDetailPage = () => {
   const { agreementId } = useParams();
   const { user } = useAuth();
-  const [agreement, setAgreement] = useState<AgreementWithEscrow | null>(null);
+  const [agreement, setAgreement] = useState<RentalAgreement | null>(null);
   const [dispute, setDispute] = useState<Dispute | null>(null);
   const [evidence, setEvidence] = useState<EvidenceGroupedResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -33,11 +33,8 @@ const DisputeDetailPage = () => {
       setDispute(disputeData);
       if (user?.role !== "admin") {
         const agreements = await getMyAgreements();
-        const match = agreements.find((item) => item.agreement._id === agreementId) || null;
+        const match = agreements.find((item) => item._id === agreementId) || null;
         setAgreement(match);
-      } else if (typeof disputeData.agreementId !== "string") {
-        const escrow = await getEscrowByAgreement(agreementId);
-        setAgreement({ agreement: disputeData.agreementId, escrow });
       }
       const evidenceData = await getAgreementEvidence(agreementId);
       setEvidence(evidenceData);
@@ -91,7 +88,7 @@ const DisputeDetailPage = () => {
     }
   };
 
-  const escrowStatus = agreement?.escrow?.escrowStatus || EscrowStatus.Unpaid;
+  const escrowStatus = agreement?.escrow?.status || EscrowStatus.AwaitingPayment;
 
   const timeline = useMemo(() => {
     if (!evidence?.evidence?.length) {
@@ -139,8 +136,8 @@ const DisputeDetailPage = () => {
         <div className="mb-6">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <h1 className="text-3xl font-semibold text-white">{agreement.agreement.propertyId.title}</h1>
-              <p className="text-slate-400 mt-1">{agreement.agreement.propertyId.address}</p>
+            <h1 className="text-3xl font-semibold text-white">{agreement.propertyId.title}</h1>
+              <p className="text-slate-400 mt-1">{agreement.propertyId.address}</p>
             </div>
             <DisputeStatusBadge status={dispute.status} />
           </div>
@@ -156,7 +153,7 @@ const DisputeDetailPage = () => {
             </div>
             <div className="rounded-lg bg-white/5 p-3 text-sm">
               <p className="text-slate-400">Agreement Status</p>
-              <p className="text-white font-medium mt-1 capitalize">{agreement.agreement.agreementStatus}</p>
+              <p className="text-white font-medium mt-1 capitalize">{agreement.status}</p>
             </div>
           </div>
         </div>
@@ -258,8 +255,8 @@ const DisputeDetailPage = () => {
                   </span>
                 </div>
                 <div className="mt-2 flex justify-between text-xs text-slate-400">
-                  <span>Tenant Gets: ₹{((agreement.agreement.depositAmount * finalDecision) / 100).toLocaleString()}</span>
-                  <span>Landlord Gets: ₹{((agreement.agreement.depositAmount * (100 - finalDecision)) / 100).toLocaleString()}</span>
+                  <span>Tenant Gets: ₹{((agreement.escrow?.depositAmount! * finalDecision) / 100).toLocaleString()}</span>
+                  <span>Landlord Gets: ₹{((agreement.escrow?.depositAmount! * (100 - finalDecision)) / 100).toLocaleString()}</span>
                 </div>
               </div>
 

@@ -2,15 +2,16 @@ export enum AgreementStatus {
   Pending = "pending",
   Active = "active",
   Completed = "completed",
-  Cancelled = "cancelled"
+  Cancelled = "cancelled",
+  Disputed = "disputed"
 }
 
 export enum EscrowStatus {
-  Unpaid = "unpaid",
-  Locked = "locked",
-  ReleaseRequested = "release_requested",
+  AwaitingPayment = "awaiting-payment",
+  Held = "held",
   Released = "released",
-  Disputed = "disputed"
+  Disputed = "disputed",
+  RefundProcessing = "refund-processing"
 }
 
 export interface AgreementParty {
@@ -25,8 +26,44 @@ export interface AgreementProperty {
   _id: string;
   title: string;
   address: string;
-  rent: number;
+  city: string;
+  state: string;
+  pincode: string;
+  propertyType: string;
+  furnishingType: string;
+  rent?: number;
+  monthlyRent?: number;
+  securityDeposit?: number;
+  maintenanceCharges?: number;
+  lockInPeriod: number;
+  noticePeriod: number;
+  petsAllowed: boolean;
+  smokingAllowed: boolean;
+  paintingDeductionClause: boolean;
+  cleaningCharges?: number;
+  defaultChecklistItems: string[];
+  damageDefinitionNote?: string;
+  regionSpecificClause?: string;
+  isActive: boolean;
+}
+
+export interface Escrow {
   depositAmount: number;
+  escrowFeePercentage: number;
+  escrowFeeAmount: number;
+  totalPayableAmount: number;
+  status: EscrowStatus;
+  paidDate?: string;
+  releasedDate?: string;
+  releaseMethod?: "lease-end" | "mutual" | "dispute-verdict";
+}
+
+export interface Agreement {
+  tenantSignature?: string;
+  landlordSignature?: string;
+  acceptedByTenant: boolean;
+  acceptedByLandlord: boolean;
+  digitalSignedAt?: string;
 }
 
 export interface RentalAgreement {
@@ -36,33 +73,14 @@ export interface RentalAgreement {
   propertyId: AgreementProperty;
   startDate: string;
   endDate: string;
-  monthlyRent: number;
+  months: number;
   depositAmount: number;
-  agreementStatus: AgreementStatus;
-  agreementPdfUrl?: string;
+  status: AgreementStatus;
+  escrow: Escrow;
+  agreement: Agreement;
+  defaultChecklistItems: string[];
+  damageDefinitionNote?: string;
+  regionSpecificClause?: string;
   createdAt: string;
-}
-
-export interface EscrowTransaction {
-  _id: string;
-  agreementId: string;
-  amount: number;
-  escrowStatus: EscrowStatus;
-  paymentGatewayOrderId?: string;
-  paymentGatewayPaymentId?: string;
-  webhookVerified: boolean;
-  lockedAt?: string;
-  releasedAt?: string;
-  releaseRequestedByTenant: boolean;
-  releaseRequestedByLandlord: boolean;
-  transactionLogs: Array<{
-    event: string;
-    metadata?: Record<string, unknown>;
-    createdAt: string;
-  }>;
-}
-
-export interface AgreementWithEscrow {
-  agreement: RentalAgreement;
-  escrow: EscrowTransaction | null;
+  updatedAt: string;
 }

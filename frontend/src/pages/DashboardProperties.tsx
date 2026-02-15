@@ -39,8 +39,8 @@ const DashboardProperties = () => {
       const property = await createProperty({
         title: form.title,
         address: form.address,
-        rent: Number(form.rent),
-        depositAmount: Number(form.deposit)
+        monthlyRent: Number(form.rent),
+        securityDeposit: Number(form.deposit)
       });
       setProperties((prev) => [...prev, property]);
       setForm({ title: "", address: "", rent: "", deposit: "" });
@@ -75,8 +75,8 @@ const DashboardProperties = () => {
             <div key={property._id} className="rounded-2xl border border-white/10 bg-white/5 p-5">
               <h3 className="text-lg font-semibold text-white">{property.title}</h3>
               <p className="text-sm text-slate-300">{property.address}</p>
-              <p className="mt-2 text-sm text-slate-300">Rent: ₹{property.rent}</p>
-              <p className="text-sm text-slate-300">Deposit: ₹{property.depositAmount}</p>
+              <p className="mt-2 text-sm text-slate-300">Rent: ₹{property.monthlyRent}</p>
+              <p className="text-sm text-slate-300">Deposit: ₹{property.securityDeposit}</p>
             </div>
           ))}
         </div>

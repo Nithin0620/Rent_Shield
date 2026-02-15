@@ -4,22 +4,14 @@ import EscrowStatusBadge from "../components/dashboard/EscrowStatusBadge";
 import Skeleton from "../components/ui/Skeleton";
 import Spinner from "../components/ui/Spinner";
 import TrustScoreBadge from "../components/TrustScoreBadge";
-import { AgreementWithEscrow, EscrowStatus } from "../types/agreement";
-import {
-  confirmRelease,
-  getMyAgreements,
-  payDeposit,
-  requestRelease
-} from "../services/agreementService";
+import { EscrowStatus } from "../types/agreement";
+import { getMyAgreements } from "../services/agreementService";
 import { useToast } from "../components/ui/ToastProvider";
 import useAuth from "../hooks/useAuth";
 
 const DashboardAgreements = () => {
-  const [agreements, setAgreements] = useState<AgreementWithEscrow[]>([]);
+  const [agreements, setAgreements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [actionState, setActionState] = useState<Record<string, "pay" | "request" | "confirm" | null>>(
-    {}
-  );
   const { push } = useToast();
   const { user } = useAuth();
 
@@ -38,52 +30,11 @@ const DashboardAgreements = () => {
     load();
   }, [push]);
 
-  const updateEscrow = (agreementId: string, nextEscrow: AgreementWithEscrow["escrow"]) => {
-    setAgreements((prev) =>
-      prev.map((item) =>
-        item.agreement._id === agreementId ? { ...item, escrow: nextEscrow } : item
-      )
-    );
-  };
+  const handlePayDeposit = async (agreementId: string) => {} // Deprecated - handled server-side
 
-  const handlePayDeposit = async (agreementId: string) => {
-    setActionState((prev) => ({ ...prev, [agreementId]: "pay" }));
-    try {
-      const escrow = await payDeposit(agreementId);
-      updateEscrow(agreementId, escrow);
-      push("Deposit paid and escrow locked.", "success");
-    } catch {
-      push("Failed to pay deposit.", "error");
-    } finally {
-      setActionState((prev) => ({ ...prev, [agreementId]: null }));
-    }
-  };
+  const handleRequestRelease = async (agreementId: string) => {} // Deprecated - handled server-side
 
-  const handleRequestRelease = async (agreementId: string) => {
-    setActionState((prev) => ({ ...prev, [agreementId]: "request" }));
-    try {
-      const escrow = await requestRelease(agreementId);
-      updateEscrow(agreementId, escrow);
-      push("Release requested.", "success");
-    } catch {
-      push("Failed to request release.", "error");
-    } finally {
-      setActionState((prev) => ({ ...prev, [agreementId]: null }));
-    }
-  };
-
-  const handleConfirmRelease = async (agreementId: string) => {
-    setActionState((prev) => ({ ...prev, [agreementId]: "confirm" }));
-    try {
-      const escrow = await confirmRelease(agreementId);
-      updateEscrow(agreementId, escrow);
-      push("Release confirmed.", "success");
-    } catch {
-      push("Failed to confirm release.", "error");
-    } finally {
-      setActionState((prev) => ({ ...prev, [agreementId]: null }));
-    }
-  };
+  const handleConfirmRelease = async (agreementId: string) => {} // Deprecated - handled server-side
 
   if (loading) {
     return (
@@ -117,7 +68,7 @@ const DashboardAgreements = () => {
       </div>
 
       <div className="grid gap-4">
-        {agreements.map(({ agreement, escrow }) => (
+        {agreements.map((agreement) => (
           <div key={agreement._id} className="rounded-2xl border border-white/10 bg-white/5 hover:bg-white/8 transition p-5">
             <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
               <div className="flex-1">
@@ -125,9 +76,9 @@ const DashboardAgreements = () => {
                 <p className="text-sm text-slate-400 mt-1">{agreement.propertyId.address}</p>
               </div>
               <div className="flex items-center gap-2">
-                {escrow && <EscrowStatusBadge status={escrow.escrowStatus} />}
+                {agreement.escrow && <EscrowStatusBadge status={agreement.escrow.status} />}
                 <span className="px-3 py-1 rounded-lg bg-white/10 text-xs font-medium text-slate-300 capitalize">
-                  {agreement.agreementStatus}
+                  {agreement.status}
                 </span>
               </div>
             </div>
@@ -167,39 +118,25 @@ const DashboardAgreements = () => {
                 View Details
               </Link>
 
-              {escrow?.escrowStatus === EscrowStatus.Unpaid && user?.id === agreement.tenantId._id && (
-                <button
-                  onClick={() => handlePayDeposit(agreement._id)}
-                  disabled={actionState[agreement._id] === "pay"}
-                  className="rounded-lg bg-neon-500 px-4 py-2 text-sm font-semibold text-midnight-900 hover:bg-neon-400 disabled:opacity-60 transition"
-                >
-                  {actionState[agreement._id] === "pay" ? "Paying..." : "💳 Pay Deposit"}
-                </button>
+              {agreement.escrow?.status === EscrowStatus.AwaitingPayment && user?.id === agreement.tenantId._id && (
+                <span className="px-4 py-2 text-sm font-medium text-amber-400">
+                  Awaiting Deposit Payment
+                </span>
               )}
 
-              {escrow?.escrowStatus === EscrowStatus.Locked && (
-                <button
-                  onClick={() => handleRequestRelease(agreement._id)}
-                  disabled={actionState[agreement._id] === "request"}
-                  className="rounded-lg border border-blue-500/30 px-4 py-2 text-sm font-medium text-blue-400 hover:bg-blue-950/20 disabled:opacity-60 transition"
-                >
-                  {actionState[agreement._id] === "request" ? "Requesting..." : "Request Release"}
-                </button>
+              {agreement.escrow?.status === EscrowStatus.Held && (
+                <span className="px-4 py-2 text-sm font-medium text-blue-400">
+                  Deposit Held in Escrow
+                </span>
               )}
 
-              {escrow?.escrowStatus === EscrowStatus.ReleaseRequested &&
-                ((user?.id === agreement.tenantId._id && !escrow.releaseRequestedByTenant) ||
-                  (user?.id === agreement.landlordId._id && !escrow.releaseRequestedByLandlord)) && (
-                <button
-                  onClick={() => handleConfirmRelease(agreement._id)}
-                  disabled={actionState[agreement._id] === "confirm"}
-                  className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60 transition"
-                >
-                  {actionState[agreement._id] === "confirm" ? "Confirming..." : "✓ Confirm Release"}
-                </button>
+              {agreement.escrow?.status === EscrowStatus.Released && (
+                <span className="px-4 py-2 text-sm font-medium text-green-400">
+                  ✓ Deposit Released
+                </span>
               )}
 
-              {escrow?.escrowStatus === EscrowStatus.Disputed && (
+              {agreement.escrow?.status === EscrowStatus.Disputed && (
                 <Link
                   to={`/disputes/${agreement._id}`}
                   className="rounded-lg border border-red-500/30 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-950/20 transition"

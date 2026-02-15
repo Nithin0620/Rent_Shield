@@ -2,7 +2,9 @@ import { Router } from "express";
 import {
   createProperty,
   listMyProperties,
-  listProperties
+  listProperties,
+  getProperty,
+  updateProperty
 } from "../controllers/propertyController";
 import { protect, restrictTo } from "../middleware/authMiddleware";
 
@@ -14,5 +16,10 @@ router
   .get(listProperties);
 
 router.get("/me", protect, restrictTo("landlord"), listMyProperties);
+
+router
+  .route("/:propertyId")
+  .get(getProperty)
+  .patch(protect, restrictTo("landlord"), updateProperty);
 
 export default router;

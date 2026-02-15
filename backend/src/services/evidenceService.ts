@@ -32,7 +32,7 @@ export const createEvidence = async ({
     throw new AppError("Forbidden", 403);
   }
 
-  if (agreement.agreementStatus !== AgreementStatus.Active) {
+  if (agreement.status !== AgreementStatus.Active) {
     throw new AppError("Agreement not active", 400);
   }
 

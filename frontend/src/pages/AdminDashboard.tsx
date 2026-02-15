@@ -188,7 +188,7 @@ const AdminDashboard = () => {
                         </td>
                         <td className="px-6 py-4">
                           <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 capitalize">
-                            {a.agreementStatus}
+                            {a.status}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-xs text-slate-500">

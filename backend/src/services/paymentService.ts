@@ -1,6 +1,5 @@
 import { AppError } from "../utils/AppError";
-import { EscrowStatus, EscrowTransaction } from "../models/EscrowTransaction";
-import { RentalAgreement, AgreementStatus } from "../models/RentalAgreement";
+import { EscrowStatus, RentalAgreement, AgreementStatus } from "../models/RentalAgreement";
 import { logAudit } from "./auditService";
 
 const buildSessionId = () =>
@@ -16,7 +15,7 @@ export const createCheckoutSession = async ({ agreementId, userId, ipAddress }: 
     throw new AppError("Agreement not found", 404);
   }
 
-  if (agreement.agreementStatus !== AgreementStatus.Active) {
+  if (agreement.status !== AgreementStatus.Active) {
     throw new AppError("Agreement not active", 400);
   }
 
@@ -24,33 +23,26 @@ export const createCheckoutSession = async ({ agreementId, userId, ipAddress }: 
     throw new AppError("Only tenant can pay deposit", 403);
   }
 
-  const escrow = await EscrowTransaction.findOne({ agreementId });
+  const escrow = agreement.escrow;
   if (!escrow) {
     throw new AppError("Escrow not found", 404);
   }
 
-  if (escrow.escrowStatus !== EscrowStatus.Unpaid) {
+  if (escrow.status !== EscrowStatus.AwaitingPayment) {
     throw new AppError("Escrow already funded", 409);
-  }
-
-  if (escrow.paymentGatewayOrderId) {
-    throw new AppError("Payment order already created", 409);
   }
 
   const sessionId = buildSessionId();
 
-  escrow.paymentGatewayOrderId = sessionId;
-  escrow.transactionLogs.push({
-    event: "payment_simulated",
-    metadata: { agreementId, amount: escrow.amount },
-    createdAt: new Date()
-  });
-  await escrow.save();
+  // Update agreement with payment info
+  escrow.paidDate = new Date();
+  agreement.markModified('escrow');
+  await agreement.save();
 
   await logAudit({
     userId,
     action: "payment_simulated",
-    metadata: { agreementId, sessionId, amount: escrow.amount },
+    metadata: { agreementId, sessionId, amount: escrow.depositAmount },
     ipAddress
   });
 

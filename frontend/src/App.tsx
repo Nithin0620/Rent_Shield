@@ -8,11 +8,16 @@ import DashboardOverview from "./pages/DashboardOverview";
 import DashboardAgreements from "./pages/DashboardAgreements";
 import DashboardProperties from "./pages/DashboardProperties";
 import AgreementDetailPage from "./pages/AgreementDetailPage";
+import AgreementEvidencePage from "./pages/AgreementEvidencePage";
+import AgreementCreatePage from "./pages/AgreementCreatePage";
 import AdminDashboard from "./pages/AdminDashboard";
 import ViewAllAgreementsPage from "./pages/ViewAllAgreementsPage";
 import PropertiesPage from "./pages/PropertiesPage";
+import CreatePropertyPage from "./pages/CreatePropertyPage";
 import EscrowStatusPage from "./pages/EscrowStatusPage";
 import DisputesPage from "./pages/DisputesPage";
+import DisputeDetailPage from "./pages/DisputeDetailPage";
+import DisputeCreatePage from "./pages/DisputeCreatePage";
 import EvidenceVaultPage from "./pages/EvidenceVaultPage";
 import TrustScorePage from "./pages/TrustScorePage";
 
@@ -36,10 +41,15 @@ const App = () => {
 
         {/* Main Pages */}
         <Route path="/agreements" element={<ViewAllAgreementsPage />} />
+        <Route path="/agreements/create" element={<AgreementCreatePage />} />
         <Route path="/agreements/:id" element={<AgreementDetailPage />} />
+        <Route path="/agreements/:id/evidence" element={<AgreementEvidencePage />} />
         <Route path="/properties" element={<PropertiesPage />} />
+        <Route path="/properties/create" element={<CreatePropertyPage />} />
         <Route path="/escrow" element={<EscrowStatusPage />} />
         <Route path="/disputes" element={<DisputesPage />} />
+        <Route path="/disputes/:id" element={<DisputeDetailPage />} />
+        <Route path="/disputes/:agreementId/create" element={<DisputeCreatePage />} />
         <Route path="/evidence" element={<EvidenceVaultPage />} />
         <Route path="/trust" element={<TrustScorePage />} />
       </Route>

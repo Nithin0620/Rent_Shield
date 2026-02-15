@@ -15,7 +15,7 @@ export interface AdminAgreement {
   tenantId: { name: string; email: string; role: string; trustScore: number };
   landlordId: { name: string; email: string; role: string; trustScore: number };
   propertyId: { title: string; address: string };
-  agreementStatus: string;
+  status: string;
   createdAt: string;
 }
 

@@ -2,16 +2,16 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Spinner from "../components/ui/Spinner";
 import TrustScoreBadge from "../components/TrustScoreBadge";
-import { AgreementWithEscrow } from "../types/agreement";
+import { RentalAgreement, EscrowStatus, AgreementStatus } from "../types/agreement";
 import { getMyAgreements } from "../services/agreementService";
 import { useToast } from "../components/ui/ToastProvider";
 import useAuth from "../hooks/useAuth";
 
-type FilterStatus = "all" | "active" | "pending" | "completed" | "disputed";
-type FilterEscrow = "all" | "unpaid" | "locked" | "release_requested" | "released" | "disputed";
+type FilterStatus = "all" | "pending" | "active" | "completed" | "disputed";
+type FilterEscrow = "all" | "awaiting-payment" | "held" | "released" | "disputed";
 
 const ViewAllAgreementsPage = () => {
-  const [agreements, setAgreements] = useState<AgreementWithEscrow[]>([]);
+  const [agreements, setAgreements] = useState<RentalAgreement[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
@@ -35,39 +35,36 @@ const ViewAllAgreementsPage = () => {
   }, [push]);
 
   const filteredAgreements = agreements.filter((item) => {
-    const agreement = item.agreement;
-    const escrow = item.escrow;
-
     // Search filter
-    if (searchTerm && !agreement.propertyId.title.toLowerCase().includes(searchTerm.toLowerCase())) {
+    if (searchTerm && !item.propertyId.title.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false;
     }
 
     // Status filter
-    if (filterStatus !== "all" && agreement.agreementStatus !== filterStatus) {
+    if (filterStatus !== "all" && item.status !== filterStatus) {
       return false;
     }
 
     // Escrow filter
-    if (filterEscrow !== "all" && escrow?.escrowStatus !== filterEscrow) {
+    if (filterEscrow !== "all" && item.escrow?.status !== filterEscrow) {
       return false;
     }
 
     return true;
   });
 
-  const getCounterpartyName = (agreement: any): string => {
-    if (user?.id === agreement.tenantId._id) {
-      return agreement.landlordId.name;
+  const getCounterpartyName = (item: RentalAgreement): string => {
+    if (user?.id === item.tenantId._id) {
+      return item.landlordId.name;
     }
-    return agreement.tenantId.name;
+    return item.tenantId.name;
   };
 
-  const getCounterpartyTrustScore = (agreement: any): number | undefined => {
-    if (user?.id === agreement.tenantId._id) {
-      return agreement.landlordId.trustScore;
+  const getCounterpartyTrustScore = (item: RentalAgreement): number | undefined => {
+    if (user?.id === item.tenantId._id) {
+      return item.landlordId.trustScore;
     }
-    return agreement.tenantId.trustScore;
+    return item.tenantId.trustScore;
   };
 
   const getStatusBadge = (status: string) => {
@@ -87,13 +84,12 @@ const ViewAllAgreementsPage = () => {
 
   const getEscrowStatusBadge = (status: string) => {
     const badgeMap: Record<string, { bg: string; text: string; label: string }> = {
-      unpaid: { bg: "bg-gray-500/20", text: "text-gray-400", label: "UNPAID" },
-      locked: { bg: "bg-blue-500/20", text: "text-blue-400", label: "LOCKED" },
-      release_requested: { bg: "bg-amber-500/20", text: "text-amber-400", label: "RELEASE REQUESTED" },
-      released: { bg: "bg-green-500/20", text: "text-green-400", label: "RELEASED" },
-      disputed: { bg: "bg-red-500/20", text: "text-red-400", label: "DISPUTED" },
+      "awaiting-payment": { bg: "bg-gray-500/20", text: "text-gray-400", label: "AWAITING PAYMENT" },
+      "held": { bg: "bg-blue-500/20", text: "text-blue-400", label: "HELD" },
+      "released": { bg: "bg-green-500/20", text: "text-green-400", label: "RELEASED" },
+      "disputed": { bg: "bg-red-500/20", text: "text-red-400", label: "DISPUTED" },
     };
-    const style = badgeMap[status] || badgeMap.unpaid;
+    const style = badgeMap[status] || badgeMap["awaiting-payment"];
     return (
       <span className={`px-3 py-1 rounded-full text-xs font-medium ${style.bg} ${style.text}`}>
         {style.label}
@@ -158,9 +154,8 @@ const ViewAllAgreementsPage = () => {
               className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-white text-sm focus:outline-none focus:border-neon-500"
             >
               <option value="all">All</option>
-              <option value="unpaid">Unpaid</option>
-              <option value="locked">Locked</option>
-              <option value="release_requested">Release Requested</option>
+              <option value="awaiting-payment">Awaiting Payment</option>
+              <option value="held">Held</option>
               <option value="released">Released</option>
               <option value="disputed">Disputed</option>
             </select>
@@ -200,27 +195,27 @@ const ViewAllAgreementsPage = () => {
           </div>
         ) : (
           <div className="grid gap-4">
-            {filteredAgreements.map(({ agreement, escrow }) => (
+            {filteredAgreements.map((item) => (
               <div
-                key={agreement._id}
+                key={item._id}
                 className="rounded-2xl border border-white/10 bg-white/5 hover:bg-white/8 transition p-5"
               >
                 <div className="grid gap-4 md:grid-cols-5 items-start mb-4">
                   {/* Property Info */}
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Property</p>
-                    <p className="text-white font-semibold">{agreement.propertyId.title}</p>
-                    <p className="text-xs text-slate-400 mt-1">{agreement.propertyId.address}</p>
+                    <p className="text-white font-semibold">{item.propertyId.title}</p>
+                    <p className="text-xs text-slate-400 mt-1">{item.propertyId.address}</p>
                   </div>
 
                   {/* Counterparty */}
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">
-                      {user?.id === agreement.tenantId._id ? "Landlord" : "Tenant"}
+                      {user?.id === item.tenantId._id ? "Landlord" : "Tenant"}
                     </p>
-                    <p className="text-white font-semibold">{getCounterpartyName(agreement)}</p>
-                    {getCounterpartyTrustScore(agreement) !== undefined && (
-                      <TrustScoreBadge score={getCounterpartyTrustScore(agreement)!} size="sm" />
+                    <p className="text-white font-semibold">{getCounterpartyName(item)}</p>
+                    {getCounterpartyTrustScore(item) !== undefined && (
+                      <TrustScoreBadge score={getCounterpartyTrustScore(item)!} size="sm" />
                     )}
                   </div>
 
@@ -228,8 +223,8 @@ const ViewAllAgreementsPage = () => {
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wide mb-2">Status</p>
                     <div className="flex flex-col gap-2">
-                      {getStatusBadge(agreement.agreementStatus)}
-                      {escrow && getEscrowStatusBadge(escrow.escrowStatus)}
+                      {getStatusBadge(item.status)}
+                      {item.escrow && getEscrowStatusBadge(item.escrow.status)}
                     </div>
                   </div>
 
@@ -237,8 +232,8 @@ const ViewAllAgreementsPage = () => {
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Amounts</p>
                     <div className="space-y-1 text-sm">
-                      <p className="text-white">Deposit: <span className="font-semibold">₹{agreement.depositAmount.toLocaleString()}</span></p>
-                      <p className="text-white">Rent: <span className="font-semibold">₹{agreement.propertyId.rent?.toLocaleString() || "N/A"}</span></p>
+                      <p className="text-white">Deposit: <span className="font-semibold">₹{item.escrow?.depositAmount?.toLocaleString() || "N/A"}</span></p>
+                      <p className="text-white">Rent: <span className="font-semibold">₹{item.propertyId.monthlyRent?.toLocaleString() || "N/A"}</span></p>
                     </div>
                   </div>
 
@@ -246,10 +241,10 @@ const ViewAllAgreementsPage = () => {
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Period</p>
                     <p className="text-white text-sm">
-                      {new Date(agreement.startDate).toLocaleDateString()}
+                      {new Date(item.startDate).toLocaleDateString()}
                     </p>
                     <p className="text-white text-sm">
-                      {new Date(agreement.endDate).toLocaleDateString()}
+                      {new Date(item.endDate).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
@@ -257,13 +252,13 @@ const ViewAllAgreementsPage = () => {
                 {/* Action Buttons */}
                 <div className="flex flex-wrap gap-2 pt-4 border-t border-white/10">
                   <Link
-                    to={`/agreements/${agreement._id}`}
+                    to={`/agreements/${item._id}`}
                     className="rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 transition"
                   >
                     View Details
                   </Link>
 
-                  {escrow?.escrowStatus === "unpaid" && user?.id === agreement.tenantId._id && (
+                  {item.escrow?.status === EscrowStatus.AwaitingPayment && user?.id === item.tenantId._id && (
                     <button
                       className="rounded-lg bg-neon-500 px-3 py-2 text-sm font-semibold text-midnight-900 hover:bg-neon-400 transition"
                     >
@@ -271,7 +266,7 @@ const ViewAllAgreementsPage = () => {
                     </button>
                   )}
 
-                  {agreement.agreementStatus === "pending" && user?.id === agreement.landlordId._id && (
+                  {item.status === "pending" && user?.id === item.landlordId._id && (
                     <>
                       <button className="rounded-lg bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
                         ✓ Approve
@@ -282,27 +277,15 @@ const ViewAllAgreementsPage = () => {
                     </>
                   )}
 
-                  {escrow?.escrowStatus === "locked" && (
+                  {item.escrow?.status === "held" && (
                     <button className="rounded-lg border border-blue-500/30 px-3 py-2 text-sm font-medium text-blue-400 hover:bg-blue-950/20 transition">
                       Request Release
                     </button>
                   )}
 
-                  {escrow?.escrowStatus === "release_requested" && (
-                    <button className="rounded-lg border border-green-500/30 px-3 py-2 text-sm font-medium text-green-400 hover:bg-green-950/20 transition">
-                      Confirm Release
-                    </button>
-                  )}
-
-                  {escrow?.escrowStatus === "release_requested" && (
-                    <button className="rounded-lg border border-amber-500/30 px-3 py-2 text-sm font-medium text-amber-400 hover:bg-amber-950/20 transition">
-                      ⚠️ Raise Dispute
-                    </button>
-                  )}
-
-                  {escrow?.escrowStatus === "disputed" && (
+                  {item.escrow?.status === "disputed" && (
                     <Link
-                      to={`/disputes/${agreement._id}`}
+                      to={`/disputes/${item._id}`}
                       className="rounded-lg border border-red-500/30 px-3 py-2 text-sm font-medium text-red-400 hover:bg-red-950/20 transition"
                     >
                       View Dispute

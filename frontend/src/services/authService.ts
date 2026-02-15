@@ -14,7 +14,6 @@ interface RegisterPayload {
 }
 
 export const login = async (payload: LoginPayload) => {
-  console.log("Login API base URL:", api.defaults.baseURL);
   const { data } = await api.post<AuthResponse>("/auth/login", payload);
   return data;
 };

@@ -28,7 +28,7 @@ const Navbar = () => {
 
   const getLandlordNavItems = () => [
     { label: "Overview", path: "/dashboard", icon: "📊" },
-    { label: "My Properties", path: "/properties/me", icon: "🏠" },
+    { label: "My Properties", path: "/dashboard/properties", icon: "🏠" },
     { label: "Agreements", path: "/agreements", icon: "📋" },
     { label: "Escrow Management", path: "/escrow", icon: "🔒" },
     { label: "Disputes", path: "/disputes", icon: "⚠️" },

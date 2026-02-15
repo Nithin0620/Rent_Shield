@@ -1,14 +1,13 @@
 import { User } from "../models/User";
-import { RentalAgreement, AgreementStatus } from "../models/RentalAgreement";
+import { RentalAgreement, AgreementStatus, EscrowStatus } from "../models/RentalAgreement";
 import { Dispute, DisputeStatus } from "../models/Dispute";
-import { EscrowTransaction, EscrowStatus } from "../models/EscrowTransaction";
 import { AppError } from "../utils/AppError";
 
 export const getAllAgreements = async () => {
   return RentalAgreement.find()
     .populate("tenantId", "name email role trustScore")
     .populate("landlordId", "name email role trustScore")
-    .populate("propertyId", "title address rent depositAmount")
+    .populate("propertyId", "title address monthlyRent securityDeposit")
     .sort({ createdAt: -1 });
 };
 
@@ -28,24 +27,27 @@ export const getAllDisputes = async () => {
 };
 
 export const getAdminDashboardStats = async () => {
-  const [totalUsers, totalAgreements, openDisputes, escrowLocked] = await Promise.all([
+  const [totalUsers, totalAgreements, openDisputes] = await Promise.all([
     User.countDocuments(),
     RentalAgreement.countDocuments(),
-    Dispute.countDocuments({ status: { $in: [DisputeStatus.Open, DisputeStatus.AiReviewed] } }),
-    EscrowTransaction.countDocuments({ escrowStatus: EscrowStatus.Locked })
+    Dispute.countDocuments({ status: { $in: [DisputeStatus.Open, DisputeStatus.AiReviewed] } })
   ]);
 
   const totalAgreementsActive = await RentalAgreement.countDocuments({
-    agreementStatus: AgreementStatus.Active
+    status: AgreementStatus.Active
   });
   const totalAgreementsCompleted = await RentalAgreement.countDocuments({
-    agreementStatus: AgreementStatus.Completed
+    status: AgreementStatus.Completed
   });
 
-  const totalEscrowLocked = await EscrowTransaction.aggregate([
-    { $match: { escrowStatus: EscrowStatus.Locked } },
-    { $group: { _id: null, total: { $sum: "$amount" } } }
+  const escrowLockedAggr = await RentalAgreement.aggregate([
+    { $match: { "escrow.status": EscrowStatus.Held } },
+    { $group: { _id: null, total: { $sum: "$escrow.depositAmount" } } }
   ]);
+
+  const escrowLockedCount = await RentalAgreement.countDocuments({
+    "escrow.status": EscrowStatus.Held
+  });
 
   return {
     totalUsers,
@@ -53,8 +55,8 @@ export const getAdminDashboardStats = async () => {
     totalAgreementsActive,
     totalAgreementsCompleted,
     openDisputes,
-    escrowLocked,
-    totalEscrowAmount: totalEscrowLocked[0]?.total || 0
+    escrowLocked: escrowLockedCount,
+    totalEscrowAmount: escrowLockedAggr[0]?.total || 0
   };
 };
 

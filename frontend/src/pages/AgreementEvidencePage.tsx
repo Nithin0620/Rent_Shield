@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import EvidenceUpload from "../components/EvidenceUpload";
-import { AgreementStatus, AgreementWithEscrow } from "../types/agreement";
+import { AgreementStatus } from "../types/agreement";
 import { EvidenceGroupedResponse } from "../types/evidence";
 import { EvidenceType } from "../types/evidenceEnums";
 import { getMyAgreements } from "../services/agreementService";
@@ -13,7 +13,7 @@ import Spinner from "../components/ui/Spinner";
 const AgreementEvidencePage = () => {
   const { id } = useParams();
   const { user } = useAuth();
-  const [agreement, setAgreement] = useState<AgreementWithEscrow | null>(null);
+  const [agreement, setAgreement] = useState<any>(null);
   const [evidenceData, setEvidenceData] = useState<EvidenceGroupedResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
@@ -26,7 +26,7 @@ const AgreementEvidencePage = () => {
     setLoading(true);
     try {
       const agreements = await getMyAgreements();
-      const match = agreements.find((item) => item.agreement._id === id) || null;
+      const match = agreements.find((item) => item._id === id) || null;
       setAgreement(match);
       const evidence = await getAgreementEvidence(id);
       setEvidenceData(evidence);
@@ -45,9 +45,9 @@ const AgreementEvidencePage = () => {
   const canUpload = useMemo(() => {
     if (!agreement || !user) return false;
     const isParty =
-      agreement.agreement.tenantId._id === user.id ||
-      agreement.agreement.landlordId._id === user.id;
-    return isParty && agreement.agreement.agreementStatus === AgreementStatus.Active;
+      agreement.tenantId._id === user.id ||
+      agreement.landlordId._id === user.id;
+    return isParty && agreement.status === AgreementStatus.Active;
   }, [agreement, user]);
 
   const handleVerify = async (evidenceId: string) => {
@@ -119,10 +119,10 @@ const AgreementEvidencePage = () => {
         <p className="muted">Agreement not found.</p>
       ) : (
         <>
-          <p className="muted">Property: {agreement.agreement.propertyId.title}</p>
-          <p className="muted">Status: {agreement.agreement.agreementStatus}</p>
+          <p className="muted">Property: {agreement.propertyId.title}</p>
+          <p className="muted">Status: {agreement.status}</p>
           <EvidenceUpload
-            agreementId={agreement.agreement._id}
+            agreementId={agreement._id}
             disabled={!canUpload}
             onUploaded={loadData}
           />

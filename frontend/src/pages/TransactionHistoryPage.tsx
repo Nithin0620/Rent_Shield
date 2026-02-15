@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { AgreementWithEscrow } from "../types/agreement";
+import { RentalAgreement } from "../types/agreement";
 import { getMyAgreements } from "../services/agreementService";
 
 const TransactionHistoryPage = () => {
-  const [agreements, setAgreements] = useState<AgreementWithEscrow[]>([]);
+  const [agreements, setAgreements] = useState<RentalAgreement[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -34,20 +34,25 @@ const TransactionHistoryPage = () => {
         <p className="muted">No transactions yet.</p>
       ) : (
         <div className="list">
-          {agreements.map(({ agreement, escrow }) => (
-            <article key={agreement._id} className="card">
-              <h3>{agreement.propertyId.title}</h3>
-              <p className="muted">{agreement.propertyId.address}</p>
-              {escrow?.transactionLogs?.length ? (
-                <ul>
-                  {escrow.transactionLogs.map((log, index) => (
-                    <li key={`${log.event}-${index}`}>
-                      <strong>{log.event}</strong> — {new Date(log.createdAt).toLocaleString()}
-                    </li>
-                  ))}
-                </ul>
+          {agreements.map((item: RentalAgreement) => (
+            <article key={item._id} className="card">
+              <h3>{item.propertyId.title}</h3>
+              <p className="muted">{item.propertyId.address}</p>
+              {item.escrow ? (
+                <div>
+                  <p>Escrow Status: <strong>{item.escrow.status}</strong></p>
+                  <p>Deposit Amount: ₹{item.escrow.depositAmount.toLocaleString()}</p>
+                  <p>Escrow Fee: ₹{item.escrow.escrowFeeAmount.toLocaleString()}</p>
+                  <p>Total Payable: ₹{item.escrow.totalPayableAmount.toLocaleString()}</p>
+                  {item.escrow.paidDate && (
+                    <p>Paid Date: {new Date(item.escrow.paidDate).toLocaleString()}</p>
+                  )}
+                  {item.escrow.releasedDate && (
+                    <p>Released Date: {new Date(item.escrow.releasedDate).toLocaleString()}</p>
+                  )}
+                </div>
               ) : (
-                <p className="muted">No logs yet.</p>
+                <p className="muted">No escrow information.</p>
               )}
             </article>
           ))}

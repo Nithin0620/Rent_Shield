@@ -1,19 +1,19 @@
 import { EscrowStatus } from "../types/agreement";
 
 const statusColors: Record<EscrowStatus, string> = {
-  [EscrowStatus.Unpaid]: "#9ca3af",
-  [EscrowStatus.Locked]: "#2563eb",
-  [EscrowStatus.ReleaseRequested]: "#f59e0b",
+  [EscrowStatus.AwaitingPayment]: "#9ca3af",
+  [EscrowStatus.Held]: "#2563eb",
   [EscrowStatus.Released]: "#16a34a",
-  [EscrowStatus.Disputed]: "#dc2626"
+  [EscrowStatus.Disputed]: "#dc2626",
+  [EscrowStatus.RefundProcessing]: "#f59e0b"
 };
 
 const labelMap: Record<EscrowStatus, string> = {
-  [EscrowStatus.Unpaid]: "UNPAID",
-  [EscrowStatus.Locked]: "LOCKED",
-  [EscrowStatus.ReleaseRequested]: "RELEASE REQUESTED",
+  [EscrowStatus.AwaitingPayment]: "AWAITING PAYMENT",
+  [EscrowStatus.Held]: "HELD",
   [EscrowStatus.Released]: "RELEASED",
-  [EscrowStatus.Disputed]: "DISPUTED"
+  [EscrowStatus.Disputed]: "DISPUTED",
+  [EscrowStatus.RefundProcessing]: "REFUND IN PROGRESS"
 };
 
 const EscrowStatusBadge = ({ status }: { status: EscrowStatus }) => {

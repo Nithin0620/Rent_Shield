@@ -1,8 +1,7 @@
 import mongoose from "mongoose";
 import { Dispute, DisputeStatus } from "../models/Dispute";
 import { AppError } from "../utils/AppError";
-import { RentalAgreement } from "../models/RentalAgreement";
-import { EscrowStatus, EscrowTransaction } from "../models/EscrowTransaction";
+import { RentalAgreement, EscrowStatus } from "../models/RentalAgreement";
 import { Evidence, EvidenceType, IEvidence } from "../models/Evidence";
 import { User } from "../models/User";
 import { runAiReview } from "./aiService";
@@ -29,13 +28,12 @@ export const createDispute = async ({ agreementId, raisedBy, reason }: {
       throw new AppError("Forbidden", 403);
     }
 
-    const escrow = await EscrowTransaction.findOne({ agreementId }).session(session);
-    if (!escrow) {
+    if (!agreement.escrow) {
       throw new AppError("Escrow not found", 404);
     }
 
-    if (escrow.escrowStatus !== EscrowStatus.ReleaseRequested) {
-      throw new AppError("Dispute can only be raised after release is requested", 400);
+    if (agreement.escrow.status !== EscrowStatus.Held) {
+      throw new AppError("Dispute can only be raised when escrow is held", 400);
     }
 
     const existing = await Dispute.findOne({
@@ -65,13 +63,9 @@ export const createDispute = async ({ agreementId, raisedBy, reason }: {
       metadata: { agreementId }
     });
 
-    escrow.escrowStatus = EscrowStatus.Disputed;
-    escrow.transactionLogs.push({
-      event: "dispute_raised",
-      metadata: { agreementId },
-      createdAt: new Date()
-    });
-    await escrow.save({ session });
+    agreement.escrow.status = EscrowStatus.Disputed;
+    agreement.markModified('escrow');
+    await agreement.save({ session });
   });
 
   session.endSession();
@@ -82,9 +76,9 @@ export const getDisputeByAgreement = async (agreementId: string) => {
   return Dispute.findOne({ agreementId })
     .populate({
       path: "agreementId",
-      select: "propertyId agreementStatus tenantId landlordId startDate endDate monthlyRent depositAmount createdAt",
+      select: "propertyId status tenantId landlordId startDate endDate escrow createdAt",
       populate: [
-        { path: "propertyId", select: "title address rent depositAmount" },
+        { path: "propertyId", select: "title address monthlyRent securityDeposit" },
         { path: "tenantId", select: "name email role" },
         { path: "landlordId", select: "name email role" }
       ]
@@ -204,15 +198,13 @@ export const adminResolveDispute = async ({
       }
     });
 
-    const escrow = await EscrowTransaction.findOne({ agreementId: dispute.agreementId }).session(session);
+    const escrow = agreement.escrow;
     if (escrow) {
-      escrow.transactionLogs.push({
-        event: "dispute_resolved",
-        metadata: { disputeId: dispute.id, finalDecisionPercentage },
-        createdAt: new Date()
-      });
-      await escrow.save({ session });
-      await enqueuePayout(escrow.id);
+      escrow.status = EscrowStatus.Released;
+      escrow.releasedDate = new Date();
+      agreement.markModified('escrow');
+      await agreement.save({ session });
+      // Note: Payout would typically be triggered here via a queue
     }
   });
 

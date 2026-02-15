@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Skeleton from "../components/ui/Skeleton";
 import TrustScoreBadge from "../components/TrustScoreBadge";
-import { AgreementWithEscrow, EscrowStatus } from "../types/agreement";
+import { EscrowStatus } from "../types/agreement";
 import { getMyAgreements } from "../services/agreementService";
 import { useToast } from "../components/ui/ToastProvider";
 import useAuth from "../hooks/useAuth";
 
 const DashboardOverview = () => {
-  const [agreements, setAgreements] = useState<AgreementWithEscrow[]>([]);
+  const [agreements, setAgreements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { push } = useToast();
   const { user } = useAuth();
@@ -42,12 +42,12 @@ const DashboardOverview = () => {
     );
   }
 
-  const activeCount = agreements.filter((item) => item.agreement.agreementStatus === "active").length;
-  const completedCount = agreements.filter((item) => item.agreement.agreementStatus === "completed").length;
-  const pendingCount = agreements.filter((item) => item.agreement.agreementStatus === "pending").length;
-  const lockedEscrow = agreements.filter((item) => item.escrow?.escrowStatus === EscrowStatus.Locked).length;
-  const totalEscrowAmount = agreements.reduce((sum, item) => sum + (item.agreement.depositAmount || 0), 0);
-  const disputeCount = agreements.filter((item) => item.escrow?.escrowStatus === EscrowStatus.Disputed).length;
+  const activeCount = agreements.filter((item) => item.status === "active").length;
+  const completedCount = agreements.filter((item) => item.status === "completed").length;
+  const pendingCount = agreements.filter((item) => item.status === "pending").length;
+  const lockedEscrow = agreements.filter((item) => item.escrow?.status === EscrowStatus.Held).length;
+  const totalEscrowAmount = agreements.reduce((sum, item) => sum + (item.depositAmount || 0), 0);
+  const disputeCount = agreements.filter((item) => item.escrow?.status === EscrowStatus.Disputed).length;
 
   const stats = [
     {
@@ -167,7 +167,7 @@ const DashboardOverview = () => {
         <div>
           <h2 className="text-lg font-semibold text-white mb-4">Recent Agreements</h2>
           <div className="space-y-3">
-            {agreements.slice(0, 3).map(({ agreement, escrow }) => (
+            {agreements.slice(0, 3).map((agreement) => (
               <Link
                 key={agreement._id}
                 to={`/agreements/${agreement._id}`}
@@ -177,10 +177,10 @@ const DashboardOverview = () => {
                   <div className="flex-1">
                     <p className="font-medium text-white">{agreement.propertyId.title}</p>
                     <p className="text-xs text-slate-400 mt-1">
-                      {escrow?.escrowStatus || "pending"} • Deposit: ₹{agreement.depositAmount.toLocaleString()}
+                      {agreement.escrow?.status || "pending"} • Deposit: ₹{agreement.depositAmount.toLocaleString()}
                     </p>
                   </div>
-                  <span className="text-sm font-medium text-slate-300 capitalize">{agreement.agreementStatus}</span>
+                  <span className="text-sm font-medium text-slate-300 capitalize">{agreement.status}</span>
                 </div>
               </Link>
             ))}

@@ -19,8 +19,8 @@ const DisputeCreatePage = () => {
       if (!agreementId) return;
       try {
         const agreements = await getMyAgreements();
-        const match = agreements.find((item) => item.agreement._id === agreementId);
-        setEscrowStatus(match?.escrow?.escrowStatus || null);
+        const match = agreements.find((item) => item._id === agreementId);
+        setEscrowStatus(match?.escrow?.status || null);
       } catch {
         setMessage("Unable to load escrow status.");
         push("Unable to load escrow status.", "error");
@@ -33,8 +33,8 @@ const DisputeCreatePage = () => {
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (!agreementId) return;
-    if (escrowStatus !== EscrowStatus.ReleaseRequested) {
-      setMessage("Dispute can only be raised after release is requested.");
+    if (escrowStatus !== EscrowStatus.Held) {
+      setMessage("Dispute can only be raised when escrow is held.");
       return;
     }
     setLoading(true);
@@ -66,7 +66,7 @@ const DisputeCreatePage = () => {
           required
         />
         {message && <span className="muted">{message}</span>}
-        <button type="submit" disabled={loading || escrowStatus !== EscrowStatus.ReleaseRequested}>
+        <button type="submit" disabled={loading || escrowStatus !== EscrowStatus.Held}>
           {loading ? "Submitting..." : "Raise dispute"}
         </button>
       </form>

@@ -23,9 +23,22 @@ const RegisterPage = () => {
       loginUser(data.user, { accessToken: data.accessToken, refreshToken: data.refreshToken });
       push("Account created.", "success");
       navigate("/dashboard");
-    } catch {
-      setError("Registration failed.");
-      push("Registration failed.", "error");
+    } catch (error) {
+      const response =
+        typeof error === "object" && error !== null && "response" in error
+          ? (error as { response?: { status?: number; data?: unknown } }).response
+          : undefined;
+      const message =
+        response?.data &&
+        typeof response.data === "object" &&
+        response.data !== null &&
+        "message" in response.data
+          ? String((response.data as { message?: string }).message)
+          : "Registration failed.";
+
+      console.error("Register failed:", response?.status, response?.data ?? error);
+      setError(message);
+      push(message, "error");
     } finally {
       setLoading(false);
     }
@@ -59,6 +72,7 @@ const RegisterPage = () => {
             placeholder="Password"
             value={form.password}
             onChange={(event) => setForm({ ...form, password: event.target.value })}
+            minLength={6}
             required
           />
           <select

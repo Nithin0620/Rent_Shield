@@ -1,18 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import EscrowStatusBadge from "../components/dashboard/EscrowStatusBadge";
-import { EscrowStatus, AgreementWithEscrow } from "../types/agreement";
+import { RentalAgreement, EscrowStatus } from "../types/agreement";
 import { useToast } from "../components/ui/ToastProvider";
 import {
-  confirmRelease,
-  getMyAgreements,
-  payDeposit,
-  requestRelease,
-  rejectAgreement,
-  getChecklist,
-  updateChecklist
+  getAgreementDetail,
+  approveAgreement,
 } from "../services/agreementService";
-import { ExitChecklist } from "../types/checklist";
 import useAuth from "../hooks/useAuth";
 import Spinner from "../components/ui/Spinner";
 import TrustScoreBadge from "../components/TrustScoreBadge";
@@ -22,12 +16,11 @@ const AgreementDetailPage = () => {
   const navigate = useNavigate();
   const { push } = useToast();
   const { user } = useAuth();
-  const [agreement, setAgreement] = useState<AgreementWithEscrow | null>(null);
-  const [checklist, setChecklist] = useState<ExitChecklist | null>(null);
+  const [agreement, setAgreement] = useState<RentalAgreement | null>(null);
   const [loading, setLoading] = useState(true);
-  const [actionState, setActionState] = useState<"pay" | "request" | "confirm" | "reject" | null>(null);
-  const [rejectReason, setRejectReason] = useState("");
-  const [showRejectForm, setShowRejectForm] = useState(false);
+  const [actionState, setActionState] = useState<"approve" | null>(null);
+  const [showApprovalForm, setShowApprovalForm] = useState(false);
+  const [landlordSignature, setLandlordSignature] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -36,21 +29,14 @@ const AgreementDetailPage = () => {
       setLoading(true);
       setError(null);
       try {
-        const data = await getMyAgreements();
-        const match = data.find((item) => item.agreement._id === id) || null;
-        setAgreement(match);
-        if (!match) {
+        const { agreement } = await getAgreementDetail(id);
+        setAgreement(agreement);
+        if (!agreement) {
           setError("Agreement not found.");
-        } else {
-          try {
-            const checklistData = await getChecklist(id);
-            setChecklist(checklistData);
-          } catch {
-            // Checklist might not be available yet
-          }
         }
-      } catch {
-        setError("Unable to load agreement.");
+      } catch (err) {
+        setError("Unable to load agreement. Please try again.");
+        console.error("Error loading agreement:", err);
       } finally {
         setLoading(false);
       }
@@ -59,47 +45,22 @@ const AgreementDetailPage = () => {
     load();
   }, [id]);
 
-  const updateEscrow = (nextEscrow: AgreementWithEscrow["escrow"]) => {
-    setAgreement((prev) => (prev ? { ...prev, escrow: nextEscrow } : prev));
-  };
-
-  const handlePayDeposit = async () => {
-    if (!agreement) return;
-    setActionState("pay");
-    try {
-      const escrow = await payDeposit(agreement.agreement._id);
-      updateEscrow(escrow);
-      push("Deposit paid and escrow locked.", "success");
-    } catch {
-      push("Failed to pay deposit.", "error");
-    } finally {
-      setActionState(null);
+  const handleApproveAgreement = async () => {
+    if (!agreement || !landlordSignature.trim()) {
+      push("Please enter your full name to approve.", "error");
+      return;
     }
-  };
-
-  const handleRequestRelease = async () => {
-    if (!agreement) return;
-    setActionState("request");
+    setActionState("approve");
     try {
-      const escrow = await requestRelease(agreement.agreement._id);
-      updateEscrow(escrow);
-      push("Release requested.", "success");
-    } catch {
-      push("Failed to request release.", "error");
-    } finally {
-      setActionState(null);
-    }
-  };
-
-  const handleConfirmRelease = async () => {
-    if (!agreement) return;
-    setActionState("confirm");
-    try {
-      const escrow = await confirmRelease(agreement.agreement._id);
-      updateEscrow(escrow);
-      push("Release confirmed.", "success");
-    } catch {
-      push("Failed to confirm release.", "error");
+      const updated = await approveAgreement(agreement._id, landlordSignature);
+      setAgreement(updated);
+      push("Agreement approved successfully.", "success");
+      setShowApprovalForm(false);
+      setLandlordSignature("");
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Failed to approve agreement.";
+      push(errorMsg, "error");
+      console.error("Error approving agreement:", err);
     } finally {
       setActionState(null);
     }
@@ -107,33 +68,7 @@ const AgreementDetailPage = () => {
 
   const handleRaiseDispute = () => {
     if (agreement) {
-      navigate(`/disputes/${agreement.agreement._id}/create`);
-    }
-  };
-
-  const handleRejectAgreement = async () => {
-    if (!agreement) return;
-    setActionState("reject");
-    try {
-      await rejectAgreement(agreement.agreement._id, rejectReason || undefined);
-      push("Agreement rejected.", "success");
-      navigate("/agreements");
-    } catch {
-      push("Failed to reject agreement.", "error");
-    } finally {
-      setActionState(null);
-      setShowRejectForm(false);
-    }
-  };
-
-  const handleUpdateChecklist = async () => {
-    if (!agreement || !checklist) return;
-    try {
-      const updated = await updateChecklist(agreement.agreement._id, checklist.items);
-      setChecklist(updated);
-      push("Checklist updated.", "success");
-    } catch {
-      push("Failed to update checklist.", "error");
+      navigate(`/disputes/${agreement._id}/create`);
     }
   };
 
@@ -150,195 +85,253 @@ const AgreementDetailPage = () => {
     return <p className="p-6 text-slate-300">{error || "Agreement not found."}</p>;
   }
 
-  const escrowStatus = agreement.escrow?.escrowStatus || EscrowStatus.Unpaid;
-  const isTenant = user?.id === agreement.agreement.tenantId._id;
-  const isLandlord = user?.id === agreement.agreement.landlordId._id;
-  const canPay = isTenant && escrowStatus === EscrowStatus.Unpaid;
-  const canRequest = escrowStatus === EscrowStatus.Locked;
-  const canConfirm =
-    escrowStatus === EscrowStatus.ReleaseRequested &&
-    ((isTenant && !agreement.escrow?.releaseRequestedByTenant) ||
-      (isLandlord && !agreement.escrow?.releaseRequestedByLandlord));
-  const canDispute = escrowStatus === EscrowStatus.ReleaseRequested;
+  const escrowStatus = agreement.escrow?.status || EscrowStatus.AwaitingPayment;
+  const isTenant = user?.id === agreement.tenantId._id;
+  const isLandlord = user?.id === agreement.landlordId._id;
+  const isPending = agreement.status === "pending";
+  const isActive = agreement.status === "active";
+  const canApprove = isLandlord && isPending && !agreement.agreement?.acceptedByLandlord;
 
   return (
     <div className="min-h-screen bg-midnight-900 p-6">
-      <div className="mx-auto w-full max-w-5xl rounded-3xl border border-white/10 bg-white/5 p-6">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-3xl font-semibold text-white">{agreement.agreement.propertyId.title}</h1>
-            <p className="text-slate-400">{agreement.agreement.propertyId.address}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <EscrowStatusBadge status={escrowStatus} />
-            <span className="px-3 py-1 rounded-lg bg-white/10 text-sm text-slate-300 capitalize">
-              {agreement.agreement.agreementStatus}
-            </span>
+      <div className="mx-auto w-full max-w-5xl space-y-6">
+        {/* Header Section */}
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <div>
+              <h1 className="text-3xl font-semibold text-white">{agreement.propertyId.title}</h1>
+              <p className="text-slate-400">{agreement.propertyId.address}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <EscrowStatusBadge status={escrowStatus} />
+              <span className="px-3 py-1 rounded-lg bg-white/10 text-sm text-slate-300 capitalize">
+                {agreement.status}
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Parties with Trust Scores */}
-        <div className="grid gap-4 md:grid-cols-3 mb-6">
+        <div className="grid gap-4 md:grid-cols-2">
           <div className="rounded-2xl border border-white/10 p-4 bg-white/5">
             <p className="text-xs uppercase tracking-widest text-slate-400 mb-3">Tenant</p>
-            <p className="font-semibold text-white mb-2">{agreement.agreement.tenantId.name}</p>
-            {agreement.agreement.tenantId.trustScore !== undefined && (
-              <TrustScoreBadge score={agreement.agreement.tenantId.trustScore} size="sm" />
+            <p className="font-semibold text-white mb-2">{agreement.tenantId.name}</p>
+            {agreement.tenantId.trustScore !== undefined && (
+              <TrustScoreBadge score={agreement.tenantId.trustScore} size="sm" />
             )}
           </div>
           <div className="rounded-2xl border border-white/10 p-4 bg-white/5">
             <p className="text-xs uppercase tracking-widest text-slate-400 mb-3">Landlord</p>
-            <p className="font-semibold text-white mb-2">{agreement.agreement.landlordId.name}</p>
-            {agreement.agreement.landlordId.trustScore !== undefined && (
-              <TrustScoreBadge score={agreement.agreement.landlordId.trustScore} size="sm" />
+            <p className="font-semibold text-white mb-2">{agreement.landlordId.name}</p>
+            {agreement.landlordId.trustScore !== undefined && (
+              <TrustScoreBadge score={agreement.landlordId.trustScore} size="sm" />
             )}
           </div>
-          <div className="rounded-2xl border border-white/10 p-4 bg-white/5">
-            <p className="text-xs uppercase tracking-widest text-slate-400 mb-3">Agreement Terms</p>
-            <div className="space-y-1 text-sm">
+        </div>
+
+        {/* Agreement Terms */}
+        <div className="rounded-2xl border border-white/10 p-6 bg-white/5">
+          <h2 className="font-semibold text-white text-lg mb-4">Agreement Terms</h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-slate-400">Deposit</span>
-                <span className="text-white font-medium">₹{agreement.agreement.depositAmount.toLocaleString()}</span>
+                <span className="text-slate-400">Duration</span>
+                <span className="text-white font-medium">
+                  {agreement.months} months
+                </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Rent</span>
-                <span className="text-white font-medium">₹{agreement.agreement.propertyId.rent?.toLocaleString() || "N/A"}</span>
+                <span className="text-slate-400">Start Date</span>
+                <span className="text-white font-medium">
+                  {new Date(agreement.startDate).toLocaleDateString()}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">End Date</span>
+                <span className="text-white font-medium">
+                  {new Date(agreement.endDate).toLocaleDateString()}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Lock-in Period</span>
+                <span className="text-white font-medium">
+                  {agreement.propertyId.lockInPeriod || "N/A"} months
+                </span>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Monthly Rent</span>
+                <span className="text-white font-medium">
+                  ₹{agreement.propertyId.rent?.toLocaleString() || "N/A"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Notice Period</span>
+                <span className="text-white font-medium">
+                  {agreement.propertyId.noticePeriod || "N/A"} days
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Maintenance Charges</span>
+                <span className="text-white font-medium">
+                  ₹{agreement.propertyId.maintenanceCharges?.toLocaleString() || "N/A"}
+                </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Exit Checklist Section */}
-        {checklist && (
-          <div className="mb-6 rounded-2xl border border-white/10 p-4 bg-white/5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-white text-lg">Exit Checklist</h3>
-              <span className="text-xs text-slate-400">
-                {checklist.items.filter((i) => i.agreed).length} of {checklist.items.length} complete
-              </span>
+        {/* Escrow Section */}
+        <div className="rounded-2xl border border-white/10 p-6 bg-white/5">
+          <h2 className="font-semibold text-white text-lg mb-4">Escrow & Deposit</h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-3 p-4 rounded-lg bg-white/5 border border-white/10">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Deposit Amount</span>
+                <span className="text-white font-medium">
+                  ₹{agreement.depositAmount.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Escrow Fee Rate</span>
+                <span className="text-white font-medium">
+                  {agreement.escrow?.escrowFeePercentage || 1.5}%
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Escrow Fee Amount</span>
+                <span className="text-neon-400 font-medium">
+                  ₹{agreement.escrow?.escrowFeeAmount?.toLocaleString() || "0"}
+                </span>
+              </div>
+              <div className="h-px bg-white/10"></div>
+              <div className="flex justify-between">
+                <span className="text-slate-300">Total to Pay</span>
+                <span className="text-white font-semibold">
+                  ₹{agreement.escrow?.totalPayableAmount?.toLocaleString() || agreement.depositAmount.toLocaleString()}
+                </span>
+              </div>
             </div>
-            
-            <div className="space-y-2 mb-4">
-              {checklist.items.map((item, idx) => (
-                <label
-                  key={idx}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    checked={item.agreed}
-                    onChange={(e) => {
-                      const updated = [...checklist.items];
-                      updated[idx] = { ...item, agreed: e.target.checked };
-                      setChecklist({ ...checklist, items: updated });
-                    }}
-                    className="rounded accent-neon-500 w-4 h-4"
-                  />
-                  <span className={`text-sm ${item.agreed ? "line-through text-slate-500" : "text-slate-300"}`}>
-                    {item.label}
-                  </span>
-                </label>
+            <div className="space-y-3 p-4 rounded-lg bg-white/5 border border-white/10">
+              <p className="text-slate-300 text-sm">
+                Your deposit is held in neutral escrow by RentShield. This ensures fair protection for both tenant and landlord throughout the lease duration.
+              </p>
+              <div className="space-y-2">
+                <p className="text-xs uppercase tracking-widest text-slate-400">Status Timeline</p>
+                <ul className="text-sm space-y-1 text-slate-400">
+                  <li className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-neon-500"></span>
+                    Current: {escrowStatus === EscrowStatus.AwaitingPayment ? "Awaiting Payment" : escrowStatus}
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-slate-700"></span>
+                    At lease end: Release
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Default Checklist */}
+        {agreement.defaultChecklistItems && agreement.defaultChecklistItems.length > 0 && (
+          <div className="rounded-2xl border border-white/10 p-6 bg-white/5">
+            <h2 className="font-semibold text-white text-lg mb-4">Property Checklist</h2>
+            <ul className="space-y-2">
+              {agreement.defaultChecklistItems.map((item, idx) => (
+                <li key={idx} className="flex items-start gap-3 p-3 rounded-lg hover:bg-white/5 transition">
+                  <span className="text-neon-500 text-lg">✓</span>
+                  <span className="text-slate-300">{item}</span>
+                </li>
               ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Signatures Section */}
+        <div className="rounded-2xl border border-white/10 p-6 bg-white/5">
+          <h2 className="font-semibold text-white text-lg mb-4">Digital Signatures</h2>
+          <div className="space-y-4">
+            <div className="p-4 rounded-lg bg-white/5 border border-white/10">
+              <p className="text-xs uppercase tracking-widest text-slate-400 mb-2">Tenant Signature</p>
+              <p className={`text-lg font-semibold ${agreement.agreement?.tenantSignature ? "text-neon-400" : "text-slate-500"}`}>
+                {agreement.agreement?.tenantSignature || "Pending"}
+              </p>
+              {agreement.agreement?.tenantSignature && (
+                <p className="text-xs text-slate-400 mt-2">
+                  Signed on {new Date(agreement.agreement.digitalSignedAt || "").toLocaleDateString()}
+                </p>
+              )}
             </div>
 
-            {/* Progress Bar */}
-            <div className="mb-4 h-2 rounded-full bg-white/10 overflow-hidden">
-              <div
-                className="h-full bg-neon-500 transition-all"
-                style={{
-                  width: `${(checklist.items.filter((i) => i.agreed).length / checklist.items.length) * 100}%`
-                }}
-              ></div>
+            <div className="p-4 rounded-lg bg-white/5 border border-white/10">
+              <p className="text-xs uppercase tracking-widest text-slate-400 mb-2">Landlord Signature</p>
+              <p className={`text-lg font-semibold ${agreement.agreement?.landlordSignature ? "text-neon-400" : "text-slate-500"}`}>
+                {agreement.agreement?.landlordSignature || "Pending"}
+              </p>
+              {agreement.agreement?.landlordSignature && (
+                <p className="text-xs text-slate-400 mt-2">
+                  Signed on {new Date(agreement.agreement.digitalSignedAt || "").toLocaleDateString()}
+                </p>
+              )}
             </div>
+          </div>
+        </div>
 
-            {checklist.items.some((i) => !i.agreed) && (
-              <button
-                onClick={handleUpdateChecklist}
-                className="w-full rounded-lg px-4 py-2 text-sm font-medium bg-amber-600/20 text-amber-400 hover:bg-amber-600/30 transition"
-              >
-                Update Checklist
-              </button>
+        {/* Approval Section */}
+        {canApprove && (
+          <div className="rounded-2xl border border-neon-500/30 p-6 bg-neon-950/20">
+            {!showApprovalForm ? (
+              <div className="text-center">
+                <p className="text-slate-300 mb-4">
+                  As the landlord, you need to review and digitally sign this agreement to activate it.
+                </p>
+                <button
+                  onClick={() => setShowApprovalForm(true)}
+                  className="rounded-lg bg-neon-500 px-6 py-2 text-sm font-semibold text-midnight-900 hover:bg-neon-400 transition"
+                >
+                  ✓ Approve & Sign Agreement
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <h3 className="font-semibold text-white">Sign Agreement</h3>
+                <input
+                  type="text"
+                  value={landlordSignature}
+                  onChange={(e) => setLandlordSignature(e.target.value)}
+                  placeholder="Enter your full name"
+                  className="w-full rounded-lg bg-midnight-900 border border-white/10 px-4 py-2 text-white placeholder-slate-500 focus:border-neon-500 outline-none transition"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleApproveAgreement}
+                    disabled={actionState === "approve" || !landlordSignature.trim()}
+                    className="flex-1 rounded-lg bg-neon-500 px-4 py-2 text-sm font-semibold text-midnight-900 hover:bg-neon-400 disabled:opacity-50 transition"
+                  >
+                    {actionState === "approve" ? "Approving..." : "Approve Agreement"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowApprovalForm(false);
+                      setLandlordSignature("");
+                    }}
+                    className="flex-1 rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         )}
 
-        {/* Reject Form */}
-        {showRejectForm && !agreement.escrow && isLandlord && (
-          <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-950/20 p-4">
-            <h3 className="font-semibold text-red-400 mb-3">Reject Agreement</h3>
-            <textarea
-              rows={3}
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="Optional: Reason for rejection"
-              className="w-full mb-3 rounded-lg bg-midnight-900 border border-red-500/30 px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500"
-            />
-            <div className="flex gap-2">
-              <button
-                onClick={handleRejectAgreement}
-                disabled={actionState === "reject"}
-                className="flex-1 rounded-lg px-3 py-2 text-sm font-medium bg-red-600 hover:bg-red-700 disabled:opacity-50 transition text-white"
-              >
-                {actionState === "reject" ? "Rejecting..." : "Confirm Rejection"}
-              </button>
-              <button
-                onClick={() => setShowRejectForm(false)}
-                className="flex-1 rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 transition"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Escrow & Action Buttons */}
-        <div className="mb-6 space-y-4">
+        {/* Action Buttons */}
+        <div className="rounded-2xl border border-white/10 p-6 bg-white/5">
           <div className="flex flex-wrap gap-3">
-            {/* Pay Deposit */}
-            {canPay && (
-              <button
-                onClick={handlePayDeposit}
-                disabled={actionState === "pay"}
-                className="rounded-lg bg-neon-500 px-4 py-2 text-sm font-semibold text-midnight-900 hover:bg-neon-400 disabled:opacity-60 transition"
-              >
-                {actionState === "pay" ? "Processing..." : "💳 Pay Deposit (Simulated)"}
-              </button>
-            )}
-
-            {/* Request Release */}
-            {canRequest && (
-              <button
-                onClick={handleRequestRelease}
-                disabled={actionState === "request"}
-                className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/5 disabled:opacity-60 transition"
-              >
-                {actionState === "request" ? "Processing..." : "Request Release"}
-              </button>
-            )}
-
-            {/* Confirm Release */}
-            {canConfirm && (
-              <button
-                onClick={handleConfirmRelease}
-                disabled={actionState === "confirm"}
-                className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60 transition"
-              >
-                {actionState === "confirm" ? "Processing..." : "✓ Confirm Release"}
-              </button>
-            )}
-
-            {/* Reject Agreement */}
-            {!agreement.escrow && isLandlord && agreement.agreement.agreementStatus === "pending" && (
-              <button
-                onClick={() => setShowRejectForm(!showRejectForm)}
-                className="rounded-lg border border-red-500/30 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-950/20 transition"
-              >
-                Reject Agreement
-              </button>
-            )}
-
             {/* Raise Dispute */}
-            {canDispute && (
+            {isActive && escrowStatus === EscrowStatus.Held && (
               <button
                 onClick={handleRaiseDispute}
                 className="rounded-lg border border-amber-500/30 px-4 py-2 text-sm font-medium text-amber-400 hover:bg-amber-950/20 transition"
@@ -346,24 +339,22 @@ const AgreementDetailPage = () => {
                 ⚠️ Raise Dispute
               </button>
             )}
-          </div>
 
-          {/* Links */}
-          <div className="flex flex-wrap gap-2">
+            {/* View Evidence */}
             <Link
-              to={`/agreements/${agreement.agreement._id}/evidence`}
+              to={`/agreements/${agreement._id}/evidence`}
               className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/5 transition"
             >
-              📸 View Evidence
+              📸 View Evidence Vault
             </Link>
-            {canDispute && (
-              <Link
-                to={`/disputes/${agreement.agreement._id}`}
-                className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/5 transition"
-              >
-                View Dispute
-              </Link>
-            )}
+
+            {/* Back Link */}
+            <button
+              onClick={() => navigate(-1)}
+              className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/5 transition"
+            >
+              ← Go Back
+            </button>
           </div>
         </div>
       </div>

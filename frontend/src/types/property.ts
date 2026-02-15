@@ -5,6 +5,7 @@ export interface PropertyOwner {
   name: string;
   email: string;
   role: UserRole;
+  trustScore?: number;
 }
 
 export interface Property {
@@ -12,7 +13,26 @@ export interface Property {
   landlordId: PropertyOwner | string;
   title: string;
   address: string;
-  rent: number;
-  depositAmount: number;
+  city: string;
+  state: string;
+  pincode: string;
+  propertyType: "flat" | "pg" | "independent-house" | "co-living";
+  furnishingType: "furnished" | "semi-furnished" | "unfurnished";
+  monthlyRent: number;
+  rent?: number; // Alias for monthlyRent for backwards compatibility
+  securityDeposit: number;
+  depositAmount?: number; // Alias for securityDeposit for backwards compatibility
+  maintenanceCharges?: number;
+  lockInPeriod: number;
+  noticePeriod: number;
+  petsAllowed: boolean;
+  smokingAllowed: boolean;
+  paintingDeductionClause: boolean;
+  cleaningCharges?: number;
+  defaultChecklistItems: string[];
+  damageDefinitionNote?: string;
+  regionSpecificClause?: string;
+  isActive: boolean;
   createdAt: string;
+  updatedAt: string;
 }

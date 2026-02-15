@@ -2,14 +2,11 @@ import { Router } from "express";
 import { z } from "zod";
 import {
   approveAgreementHandler,
-  rejectAgreementHandler,
   getChecklistHandler,
   updateChecklistHandler,
-  confirmReleaseHandler,
   createAgreementHandler,
   myAgreementsHandler,
-  payDepositHandler,
-  requestReleaseHandler
+  getAgreementDetailHandler
 } from "../controllers/agreementController";
 import { agreementEvidenceHandler } from "../controllers/evidenceController";
 import { protect, restrictTo } from "../middleware/authMiddleware";
@@ -20,11 +17,16 @@ const router = Router();
 const agreementCreateSchema = z.object({
   propertyId: z.string().min(1, "Property is required"),
   startDate: z.string().min(1, "Start date is required"),
-  endDate: z.string().min(1, "End date is required")
+  endDate: z.string().min(1, "End date is required"),
+  tenantSignature: z.string().min(1, "Digital signature required")
 });
 
 const idParamSchema = z.object({
   id: z.string().min(1, "Agreement id is required")
+});
+
+const approveSchema = z.object({
+  landlordSignature: z.string().min(1, "Digital signature required")
 });
 
 router.post(
@@ -40,43 +42,19 @@ router.patch(
   protect,
   restrictTo("landlord"),
   validateParams(idParamSchema),
+  validateBody(approveSchema),
   approveAgreementHandler
 );
 
-router.post(
-  "/:id/pay-deposit",
-  protect,
-  restrictTo("tenant"),
-  validateParams(idParamSchema),
-  payDepositHandler
-);
-
-router.post(
-  "/:id/request-release",
-  protect,
-  restrictTo("tenant", "landlord"),
-  validateParams(idParamSchema),
-  requestReleaseHandler
-);
-
-router.post(
-  "/:id/confirm-release",
-  protect,
-  restrictTo("tenant", "landlord"),
-  validateParams(idParamSchema),
-  confirmReleaseHandler
-);
-
-router.patch(
-  "/:id/reject",
-  protect,
-  restrictTo("landlord"),
-  validateParams(idParamSchema),
-  validateBody(z.object({ reason: z.string().optional() })),
-  rejectAgreementHandler
-);
-
 router.get("/my-agreements", protect, restrictTo("tenant", "landlord"), myAgreementsHandler);
+
+router.get(
+  "/:agreementId/detail",
+  protect,
+  restrictTo("tenant", "landlord", "admin"),
+  validateParams(z.object({ agreementId: z.string() })),
+  getAgreementDetailHandler
+);
 
 router.get(
   "/:id/evidence",

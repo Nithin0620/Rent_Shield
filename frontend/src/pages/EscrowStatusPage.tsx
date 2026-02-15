@@ -28,7 +28,7 @@ const EscrowStatusPage = () => {
 
   // Group by escrow status
   const groupedByStatus = agreements.reduce((acc: any, item: any) => {
-    const status = item.escrow?.escrowStatus || "unknown";
+    const status = item.escrow?.status || "unknown";
     if (!acc[status]) acc[status] = [];
     acc[status].push(item);
     return acc;
@@ -36,20 +36,20 @@ const EscrowStatusPage = () => {
 
   // Calculate metrics
   const escrows = agreements.map((a: any) => a.escrow).filter(Boolean);
-  const totalLocked = escrows.reduce((sum: number, e: any) => sum + (e.escrowStatus === "locked" ? e.amount : 0), 0);
-  const totalPendingRelease = escrows.reduce((sum: number, e: any) => sum + (e.escrowStatus === "release_requested" ? e.amount : 0), 0);
-  const totalDisputed = escrows.reduce((sum: number, e: any) => sum + (e.escrowStatus === "disputed" ? e.amount : 0), 0);
-  const totalReleased = escrows.reduce((sum: number, e: any) => sum + (e.escrowStatus === "released" ? e.amount : 0), 0);
+  const totalLocked = escrows.reduce((sum: number, e: any) => sum + (e.status === "held" ? e.depositAmount : 0), 0);
+  const totalPendingRelease = escrows.reduce((sum: number, e: any) => sum + (e.status === "awaiting-payment" ? e.depositAmount : 0), 0);
+  const totalDisputed = escrows.reduce((sum: number, e: any) => sum + (e.status === "disputed" ? e.depositAmount : 0), 0);
+  const totalReleased = escrows.reduce((sum: number, e: any) => sum + (e.status === "released" ? e.depositAmount : 0), 0);
 
   const getStatusBadge = (status: string) => {
     const badgeMap: Record<string, { bg: string; text: string; label: string }> = {
-      unpaid: { bg: "bg-gray-500/20", text: "text-gray-400", label: "UNPAID" },
-      locked: { bg: "bg-blue-500/20", text: "text-blue-400", label: "LOCKED" },
-      release_requested: { bg: "bg-amber-500/20", text: "text-amber-400", label: "RELEASE REQUESTED" },
-      released: { bg: "bg-green-500/20", text: "text-green-400", label: "RELEASED" },
-      disputed: { bg: "bg-red-500/20", text: "text-red-400", label: "DISPUTED" },
+      "awaiting-payment": { bg: "bg-gray-500/20", text: "text-gray-400", label: "AWAITING PAYMENT" },
+      "held": { bg: "bg-blue-500/20", text: "text-blue-400", label: "HELD" },
+      "released": { bg: "bg-green-500/20", text: "text-green-400", label: "RELEASED" },
+      "disputed": { bg: "bg-red-500/20", text: "text-red-400", label: "DISPUTED" },
+      "refund-processing": { bg: "bg-amber-500/20", text: "text-amber-400", label: "REFUND PROCESSING" },
     };
-    const style = badgeMap[status] || badgeMap.unpaid;
+    const style = badgeMap[status] || badgeMap["awaiting-payment"];
     return (
       <span className={`px-3 py-1 rounded-full text-xs font-medium ${style.bg} ${style.text}`}>
         {style.label}

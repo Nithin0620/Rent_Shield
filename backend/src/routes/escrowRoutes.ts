@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { getEscrowHandler } from "../controllers/agreementController";
+import { getAgreementDetailHandler } from "../controllers/agreementController";
 import { protect, restrictTo } from "../middleware/authMiddleware";
 import { validateParams } from "../middleware/validate";
 
@@ -15,7 +15,7 @@ router.get(
   protect,
   restrictTo("tenant", "landlord", "admin"),
   validateParams(agreementParamSchema),
-  getEscrowHandler
+  getAgreementDetailHandler
 );
 
 export default router;

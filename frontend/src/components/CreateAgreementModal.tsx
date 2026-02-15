@@ -21,6 +21,7 @@ const CreateAgreementModal = ({
 }: CreateAgreementModalProps) => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [tenantSignature, setTenantSignature] = useState("");
   const [loading, setLoading] = useState(false);
   const { push } = useToast();
 
@@ -30,6 +31,10 @@ const CreateAgreementModal = ({
       push("Please select both start and end dates", "error");
       return;
     }
+    if (!tenantSignature.trim()) {
+      push("Please enter your full name", "error");
+      return;
+    }
     if (new Date(endDate) <= new Date(startDate)) {
       push("End date must be after start date", "error");
       return;
@@ -37,7 +42,7 @@ const CreateAgreementModal = ({
 
     setLoading(true);
     try {
-      await createAgreement({ propertyId, startDate, endDate });
+      await createAgreement({ propertyId, startDate, endDate, tenantSignature });
       push("Agreement created successfully!", "success");
       onSuccess();
       onClose();
@@ -87,6 +92,19 @@ const CreateAgreementModal = ({
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
+              required
+              className="w-full rounded-lg bg-midnight-900 border border-white/10 px-3 py-2 text-white text-sm focus:outline-none focus:border-neon-500"
+            />
+          </div>
+
+          {/* Tenant Signature */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Your Full Name</label>
+            <input
+              type="text"
+              value={tenantSignature}
+              onChange={(e) => setTenantSignature(e.target.value)}
+              placeholder="John Doe"
               required
               className="w-full rounded-lg bg-midnight-900 border border-white/10 px-3 py-2 text-white text-sm focus:outline-none focus:border-neon-500"
             />

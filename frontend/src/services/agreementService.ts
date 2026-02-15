@@ -1,11 +1,12 @@
 import api from "./api";
-import { AgreementWithEscrow, EscrowTransaction, RentalAgreement } from "../types/agreement";
+import { RentalAgreement } from "../types/agreement";
 import { ExitChecklist } from "../types/checklist";
 
-interface AgreementPayload {
+export interface AgreementPayload {
   propertyId: string;
   startDate: string;
   endDate: string;
+  tenantSignature: string;
 }
 
 export const createAgreement = async (payload: AgreementPayload) => {
@@ -14,17 +15,21 @@ export const createAgreement = async (payload: AgreementPayload) => {
 };
 
 export const getMyAgreements = async () => {
-  const { data } = await api.get<{ agreements: AgreementWithEscrow[] }>("/agreements/my-agreements");
+  const { data } = await api.get<{ agreements: RentalAgreement[] }>("/agreements/my-agreements");
   return data.agreements;
 };
 
-export const approveAgreement = async (agreementId: string) => {
-  const { data } = await api.patch<{ agreement: RentalAgreement }>(`/agreements/${agreementId}/approve`);
-  return data.agreement;
+export const getAgreementDetail = async (agreementId: string) => {
+  const { data } = await api.get<{ agreement: RentalAgreement; checklist: ExitChecklist | null }>(
+    `/agreements/${agreementId}/detail`
+  );
+  return data;
 };
 
-export const rejectAgreement = async (agreementId: string, reason?: string) => {
-  const { data } = await api.patch<{ agreement: RentalAgreement }>(`/agreements/${agreementId}/reject`, { reason });
+export const approveAgreement = async (agreementId: string, landlordSignature: string) => {
+  const { data } = await api.patch<{ agreement: RentalAgreement }>(`/agreements/${agreementId}/approve`, {
+    landlordSignature
+  });
   return data.agreement;
 };
 
@@ -36,28 +41,4 @@ export const getChecklist = async (agreementId: string) => {
 export const updateChecklist = async (agreementId: string, items: ExitChecklist['items']) => {
   const { data } = await api.patch<{ checklist: ExitChecklist }>(`/agreements/${agreementId}/checklist`, { items });
   return data.checklist;
-};
-
-export const payDeposit = async (agreementId: string) => {
-  const { data } = await api.post<{ escrow: EscrowTransaction }>(`/agreements/${agreementId}/pay-deposit`);
-  return data.escrow;
-};
-
-export const requestRelease = async (agreementId: string) => {
-  const { data } = await api.post<{ escrow: EscrowTransaction }>(
-    `/agreements/${agreementId}/request-release`
-  );
-  return data.escrow;
-};
-
-export const confirmRelease = async (agreementId: string) => {
-  const { data } = await api.post<{ escrow: EscrowTransaction }>(
-    `/agreements/${agreementId}/confirm-release`
-  );
-  return data.escrow;
-};
-
-export const getEscrowByAgreement = async (agreementId: string) => {
-  const { data } = await api.get<{ escrow: EscrowTransaction }>(`/escrow/${agreementId}`);
-  return data.escrow;
 };
